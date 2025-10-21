@@ -24,9 +24,9 @@ void UITabs::createTabs() {
     lv_obj_set_size(tabview, SCREEN_WIDTH, SCREEN_HEIGHT - STATUS_BAR_HEIGHT);
     lv_obj_align(tabview, LV_ALIGN_TOP_LEFT, 0, 0);  // Align to top-left, not bottom
     
-    // Get the tab bar and set to same height as status bar
+    // Get the tab bar and set height
     lv_obj_t *tab_bar = lv_tabview_get_tab_bar(tabview);
-    lv_obj_set_height(tab_bar, STATUS_BAR_HEIGHT);  // Match status bar height (60px)
+    lv_obj_set_height(tab_bar, TAB_BUTTON_HEIGHT);
     
     // Remove padding from tabview content area
     lv_obj_set_style_pad_all(lv_tabview_get_content(tabview), 0, 0);

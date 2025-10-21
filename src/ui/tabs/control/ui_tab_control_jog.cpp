@@ -1,84 +1,391 @@
 #include "ui/tabs/control/ui_tab_control_jog.h"
+#include <Arduino.h>
+
+// Static member initialization
+lv_obj_t *UITabControlJog::xy_step_display_label = nullptr;
+lv_obj_t *UITabControlJog::z_step_display_label = nullptr;
+lv_obj_t *UITabControlJog::xy_step_buttons[6] = {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr};
+lv_obj_t *UITabControlJog::z_step_buttons[3] = {nullptr, nullptr, nullptr};
+lv_obj_t *UITabControlJog::xy_feedrate_label = nullptr;
+lv_obj_t *UITabControlJog::z_feedrate_label = nullptr;
+float UITabControlJog::xy_current_step = 1.0f;
+float UITabControlJog::z_current_step = 1.0f;
+int UITabControlJog::xy_current_step_index = 1; // Default to index 1 (1.0mm)
+int UITabControlJog::z_current_step_index = 1; // Default to index 1 (1.0mm)
 
 void UITabControlJog::create(lv_obj_t *tab) {
-    // Step size selection
-    lv_obj_t *step_label = lv_label_create(tab);
-    lv_label_set_text(step_label, "Step Size:");
-    lv_obj_set_style_text_font(step_label, &lv_font_montserrat_18, 0);
-    lv_obj_set_pos(step_label, 10, 10);
+    // Calculate available height - Control tab content area is ~370px
     
-    // Step size buttons
-    static const char *step_labels[] = {"0.1", "1", "10", "100"};
-    for (int i = 0; i < 4; i++) {
+    // ========== XY Section (Left side) ==========
+    
+    // XY Step size selection - VERTICAL buttons on left
+    lv_obj_t *xy_step_label = lv_label_create(tab);
+    lv_label_set_text(xy_step_label, "XY Step");
+    lv_obj_set_style_text_font(xy_step_label, &lv_font_montserrat_14, 0);
+    lv_obj_set_pos(xy_step_label, 5, 5);
+    
+    // XY Step size buttons - vertical (0.1, 1, 10, 50, 100, 500)
+    static const char *xy_step_labels[] = {"0.1", "1", "10", "50", "100", "500"};
+    for (int i = 0; i < 6; i++) {
         lv_obj_t *btn_step = lv_button_create(tab);
-        lv_obj_set_size(btn_step, 70, 50);
-        lv_obj_set_pos(btn_step, 120 + i * 80, 5);
+        lv_obj_set_size(btn_step, 45, 45);
+        lv_obj_set_pos(btn_step, 10, 30 + i * 50);
+        lv_obj_add_event_cb(btn_step, xy_step_button_event_cb, LV_EVENT_CLICKED, (void*)(intptr_t)i);
+        
+        xy_step_buttons[i] = btn_step;
+        
         lv_obj_t *lbl = lv_label_create(btn_step);
-        lv_label_set_text(lbl, step_labels[i]);
-        lv_obj_set_style_text_font(lbl, &lv_font_montserrat_18, 0);
+        lv_label_set_text(lbl, xy_step_labels[i]);
+        lv_obj_set_style_text_font(lbl, &lv_font_montserrat_12, 0);
         lv_obj_center(lbl);
     }
+    update_xy_step_button_styles();
     
-    // XY Jog pad (3x3 button grid)
-    lv_obj_t *xy_label = lv_label_create(tab);
-    lv_label_set_text(xy_label, "XY Jog:");
-    lv_obj_set_style_text_font(xy_label, &lv_font_montserrat_18, 0);
-    lv_obj_set_pos(xy_label, 10, 75);
+    // XY Jog pad (3x3 button grid) - next to step buttons
+    static const char *xy_labels[] = {
+        LV_SYMBOL_UP,       // NW (up, rotated -45°)
+        LV_SYMBOL_UP,       // N (up)
+        LV_SYMBOL_UP,       // NE (up, rotated +45°)
+        LV_SYMBOL_LEFT,     // W (left)
+        "",                 // Center - will show step value
+        LV_SYMBOL_RIGHT,    // E (right)
+        LV_SYMBOL_DOWN,     // SW (down, rotated +45°)
+        LV_SYMBOL_DOWN,     // S (down)
+        LV_SYMBOL_DOWN      // SE (down, rotated -45°)
+    };
     
-    static const char *xy_labels[] = {"-X-Y", "-Y", "+X-Y", "-X", "Home", "+X", "-X+Y", "+Y", "+X+Y"};
+    static const int16_t xy_rotations[] = {
+        -450, 0, 450,  // Top row
+        0, 0, 0,       // Middle row
+        450, 0, -450   // Bottom row
+    };
+    
     for (int i = 0; i < 9; i++) {
         lv_obj_t *btn_xy = lv_button_create(tab);
-        lv_obj_set_size(btn_xy, 80, 80);
-        lv_obj_set_pos(btn_xy, 10 + (i % 3) * 90, 110 + (i / 3) * 90);
+        lv_obj_set_size(btn_xy, 70, 70);
+        lv_obj_set_pos(btn_xy, 85 + (i % 3) * 80, 30 + (i / 3) * 80);
         
-        // Special styling for center button (home)
+        // Special styling for center button (step display)
         if (i == 4) {
-            lv_obj_set_style_bg_color(btn_xy, lv_color_hex(0x555555), 0);
+            lv_obj_set_style_bg_color(btn_xy, lv_color_hex(0x1a1a1a), 0);
+            lv_obj_clear_flag(btn_xy, LV_OBJ_FLAG_CLICKABLE);
         }
         
         lv_obj_t *lbl = lv_label_create(btn_xy);
         lv_label_set_text(lbl, xy_labels[i]);
-        lv_obj_set_style_text_font(lbl, &lv_font_montserrat_14, 0);
+        
+        if (i == 4) {
+            xy_step_display_label = lbl;
+            lv_obj_set_style_text_font(lbl, &lv_font_montserrat_14, 0);
+            lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, 0);
+            update_xy_step_display();
+        } else {
+            lv_obj_set_style_text_font(lbl, &lv_font_montserrat_32, 0);
+        }
+        
+        if (xy_rotations[i] != 0) {
+            lv_obj_set_style_transform_angle(lbl, xy_rotations[i], 0);
+            lv_obj_set_style_transform_pivot_x(lbl, lv_pct(50), 0);
+            lv_obj_set_style_transform_pivot_y(lbl, lv_pct(50), 0);
+        }
+        
         lv_obj_center(lbl);
     }
     
-    // Z Jog buttons (vertical)
-    lv_obj_t *z_label = lv_label_create(tab);
-    lv_label_set_text(z_label, "Z Jog:");
-    lv_obj_set_style_text_font(z_label, &lv_font_montserrat_18, 0);
-    lv_obj_set_pos(z_label, 320, 75);
+    // XY Feed rate control
+    lv_obj_t *xy_feed_label = lv_label_create(tab);
+    lv_label_set_text(xy_feed_label, "XY Feed:");
+    lv_obj_set_style_text_font(xy_feed_label, &lv_font_montserrat_14, 0);
+    lv_obj_set_pos(xy_feed_label, 85, 280);
     
-    // Z+ button
+    // XY Feedrate value (plain text label)
+    xy_feedrate_label = lv_label_create(tab);
+    lv_label_set_text(xy_feedrate_label, "1000");
+    lv_obj_set_style_text_font(xy_feedrate_label, &lv_font_montserrat_14, 0);
+    lv_obj_set_pos(xy_feedrate_label, 155, 280);
+    
+    lv_obj_t *xy_feed_unit = lv_label_create(tab);
+    lv_label_set_text(xy_feed_unit, "mm/min");
+    lv_obj_set_style_text_font(xy_feed_unit, &lv_font_montserrat_10, 0);
+    lv_obj_set_pos(xy_feed_unit, 205, 283);
+    
+    // XY Feedrate adjustment buttons - all on one line: -1000, -100, +100, +1000
+    lv_obj_t *btn_xy_minus1000 = lv_button_create(tab);
+    lv_obj_set_size(btn_xy_minus1000, 55, 45);
+    lv_obj_set_pos(btn_xy_minus1000, 85, 300);
+    lv_obj_add_event_cb(btn_xy_minus1000, xy_feedrate_adj_event_cb, LV_EVENT_CLICKED, (void*)(intptr_t)-1000);
+    lv_obj_t *lbl_xy_minus1000 = lv_label_create(btn_xy_minus1000);
+    lv_label_set_text(lbl_xy_minus1000, "-1000");
+    lv_obj_set_style_text_font(lbl_xy_minus1000, &lv_font_montserrat_12, 0);
+    lv_obj_center(lbl_xy_minus1000);
+    
+    lv_obj_t *btn_xy_minus100 = lv_button_create(tab);
+    lv_obj_set_size(btn_xy_minus100, 55, 45);
+    lv_obj_set_pos(btn_xy_minus100, 145, 300);
+    lv_obj_add_event_cb(btn_xy_minus100, xy_feedrate_adj_event_cb, LV_EVENT_CLICKED, (void*)(intptr_t)-100);
+    lv_obj_t *lbl_xy_minus100 = lv_label_create(btn_xy_minus100);
+    lv_label_set_text(lbl_xy_minus100, "-100");
+    lv_obj_set_style_text_font(lbl_xy_minus100, &lv_font_montserrat_12, 0);
+    lv_obj_center(lbl_xy_minus100);
+    
+    lv_obj_t *btn_xy_plus100 = lv_button_create(tab);
+    lv_obj_set_size(btn_xy_plus100, 55, 45);
+    lv_obj_set_pos(btn_xy_plus100, 205, 300);
+    lv_obj_add_event_cb(btn_xy_plus100, xy_feedrate_adj_event_cb, LV_EVENT_CLICKED, (void*)(intptr_t)100);
+    lv_obj_t *lbl_xy_plus100 = lv_label_create(btn_xy_plus100);
+    lv_label_set_text(lbl_xy_plus100, "+100");
+    lv_obj_set_style_text_font(lbl_xy_plus100, &lv_font_montserrat_12, 0);
+    lv_obj_center(lbl_xy_plus100);
+    
+    lv_obj_t *btn_xy_plus1000 = lv_button_create(tab);
+    lv_obj_set_size(btn_xy_plus1000, 55, 45);
+    lv_obj_set_pos(btn_xy_plus1000, 265, 300);
+    lv_obj_add_event_cb(btn_xy_plus1000, xy_feedrate_adj_event_cb, LV_EVENT_CLICKED, (void*)(intptr_t)1000);
+    lv_obj_t *lbl_xy_plus1000 = lv_label_create(btn_xy_plus1000);
+    lv_label_set_text(lbl_xy_plus1000, "+1000");
+    lv_obj_set_style_text_font(lbl_xy_plus1000, &lv_font_montserrat_12, 0);
+    lv_obj_center(lbl_xy_plus1000);
+    
+    // ========== Z Section (Right side) ==========
+    
+    // Z Step size selection - VERTICAL buttons on left of Z controls
+    lv_obj_t *z_step_label = lv_label_create(tab);
+    lv_label_set_text(z_step_label, "Z Step");
+    lv_obj_set_style_text_font(z_step_label, &lv_font_montserrat_14, 0);
+    lv_obj_set_pos(z_step_label, 395, 5);
+    
+    // Z Step size buttons - vertical (0.1, 1, 10)
+    static const char *z_step_labels[] = {"0.1", "1", "10"};
+    for (int i = 0; i < 3; i++) {
+        lv_obj_t *btn_step = lv_button_create(tab);
+        lv_obj_set_size(btn_step, 45, 45);
+        lv_obj_set_pos(btn_step, 395, 30 + i * 50);
+        lv_obj_add_event_cb(btn_step, z_step_button_event_cb, LV_EVENT_CLICKED, (void*)(intptr_t)i);
+        
+        z_step_buttons[i] = btn_step;
+        
+        lv_obj_t *lbl = lv_label_create(btn_step);
+        lv_label_set_text(lbl, z_step_labels[i]);
+        lv_obj_set_style_text_font(lbl, &lv_font_montserrat_12, 0);
+        lv_obj_center(lbl);
+    }
+    update_z_step_button_styles();
+    
+    // Z+ button - same size as XY buttons (70x70)
     lv_obj_t *btn_z_up = lv_button_create(tab);
-    lv_obj_set_size(btn_z_up, 100, 100);
-    lv_obj_set_pos(btn_z_up, 320, 110);
+    lv_obj_set_size(btn_z_up, 70, 70);
+    lv_obj_set_pos(btn_z_up, 460, 30);
     lv_obj_t *lbl_z_up = lv_label_create(btn_z_up);
-    lv_label_set_text(lbl_z_up, "Z+");
+    lv_label_set_text(lbl_z_up, LV_SYMBOL_UP);
     lv_obj_set_style_text_font(lbl_z_up, &lv_font_montserrat_32, 0);
     lv_obj_center(lbl_z_up);
     
-    // Z- button
+    // Z step display (between up/down buttons)
+    lv_obj_t *z_step_display_bg = lv_obj_create(tab);
+    lv_obj_set_size(z_step_display_bg, 70, 70);
+    lv_obj_set_pos(z_step_display_bg, 460, 110);
+    lv_obj_set_style_bg_color(z_step_display_bg, lv_color_hex(0x1a1a1a), 0);
+    lv_obj_set_style_border_width(z_step_display_bg, 0, 0);
+    lv_obj_clear_flag(z_step_display_bg, LV_OBJ_FLAG_SCROLLABLE);
+    
+    z_step_display_label = lv_label_create(z_step_display_bg);
+    lv_obj_set_style_text_font(z_step_display_label, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_align(z_step_display_label, LV_TEXT_ALIGN_CENTER, 0);
+    update_z_step_display();
+    lv_obj_center(z_step_display_label);
+    
+    // Z- button - same size as XY buttons (70x70)
     lv_obj_t *btn_z_down = lv_button_create(tab);
-    lv_obj_set_size(btn_z_down, 100, 100);
-    lv_obj_set_pos(btn_z_down, 320, 220);
+    lv_obj_set_size(btn_z_down, 70, 70);
+    lv_obj_set_pos(btn_z_down, 460, 190);
     lv_obj_t *lbl_z_down = lv_label_create(btn_z_down);
-    lv_label_set_text(lbl_z_down, "Z-");
+    lv_label_set_text(lbl_z_down, LV_SYMBOL_DOWN);
     lv_obj_set_style_text_font(lbl_z_down, &lv_font_montserrat_32, 0);
     lv_obj_center(lbl_z_down);
     
-    // Feed rate control
-    lv_obj_t *feed_label = lv_label_create(tab);
-    lv_label_set_text(feed_label, "Feed Rate:");
-    lv_obj_set_style_text_font(feed_label, &lv_font_montserrat_18, 0);
-    lv_obj_set_pos(feed_label, 450, 75);
+    // Z Feed rate control
+    lv_obj_t *z_feed_label = lv_label_create(tab);
+    lv_label_set_text(z_feed_label, "Z Feed:");
+    lv_obj_set_style_text_font(z_feed_label, &lv_font_montserrat_14, 0);
+    lv_obj_set_pos(z_feed_label, 395, 280);
     
-    lv_obj_t *feed_input = lv_textarea_create(tab);
-    lv_textarea_set_one_line(feed_input, true);
-    lv_textarea_set_text(feed_input, "1000");
-    lv_obj_set_size(feed_input, 120, LV_SIZE_CONTENT);
-    lv_obj_set_pos(feed_input, 450, 110);
+    // Z Feedrate value (plain text label)
+    z_feedrate_label = lv_label_create(tab);
+    lv_label_set_text(z_feedrate_label, "500");
+    lv_obj_set_style_text_font(z_feedrate_label, &lv_font_montserrat_14, 0);
+    lv_obj_set_pos(z_feedrate_label, 460, 280);
     
-    lv_obj_t *feed_unit = lv_label_create(tab);
-    lv_label_set_text(feed_unit, "mm/min");
-    lv_obj_set_pos(feed_unit, 580, 115);
+    lv_obj_t *z_feed_unit = lv_label_create(tab);
+    lv_label_set_text(z_feed_unit, "mm/min");
+    lv_obj_set_style_text_font(z_feed_unit, &lv_font_montserrat_10, 0);
+    lv_obj_set_pos(z_feed_unit, 505, 283);
+    
+    // Z Feedrate adjustment buttons - all on one line: -1000, -100, +100, +1000
+    lv_obj_t *btn_z_minus1000 = lv_button_create(tab);
+    lv_obj_set_size(btn_z_minus1000, 55, 45);
+    lv_obj_set_pos(btn_z_minus1000, 395, 300);
+    lv_obj_add_event_cb(btn_z_minus1000, z_feedrate_adj_event_cb, LV_EVENT_CLICKED, (void*)(intptr_t)-1000);
+    lv_obj_t *lbl_z_minus1000 = lv_label_create(btn_z_minus1000);
+    lv_label_set_text(lbl_z_minus1000, "-1000");
+    lv_obj_set_style_text_font(lbl_z_minus1000, &lv_font_montserrat_12, 0);
+    lv_obj_center(lbl_z_minus1000);
+    
+    lv_obj_t *btn_z_minus100 = lv_button_create(tab);
+    lv_obj_set_size(btn_z_minus100, 55, 45);
+    lv_obj_set_pos(btn_z_minus100, 455, 300);
+    lv_obj_add_event_cb(btn_z_minus100, z_feedrate_adj_event_cb, LV_EVENT_CLICKED, (void*)(intptr_t)-100);
+    lv_obj_t *lbl_z_minus100 = lv_label_create(btn_z_minus100);
+    lv_label_set_text(lbl_z_minus100, "-100");
+    lv_obj_set_style_text_font(lbl_z_minus100, &lv_font_montserrat_12, 0);
+    lv_obj_center(lbl_z_minus100);
+    
+    lv_obj_t *btn_z_plus100 = lv_button_create(tab);
+    lv_obj_set_size(btn_z_plus100, 55, 45);
+    lv_obj_set_pos(btn_z_plus100, 515, 300);
+    lv_obj_add_event_cb(btn_z_plus100, z_feedrate_adj_event_cb, LV_EVENT_CLICKED, (void*)(intptr_t)100);
+    lv_obj_t *lbl_z_plus100 = lv_label_create(btn_z_plus100);
+    lv_label_set_text(lbl_z_plus100, "+100");
+    lv_obj_set_style_text_font(lbl_z_plus100, &lv_font_montserrat_12, 0);
+    lv_obj_center(lbl_z_plus100);
+    
+    lv_obj_t *btn_z_plus1000 = lv_button_create(tab);
+    lv_obj_set_size(btn_z_plus1000, 55, 45);
+    lv_obj_set_pos(btn_z_plus1000, 575, 300);
+    lv_obj_add_event_cb(btn_z_plus1000, z_feedrate_adj_event_cb, LV_EVENT_CLICKED, (void*)(intptr_t)1000);
+    lv_obj_t *lbl_z_plus1000 = lv_label_create(btn_z_plus1000);
+    lv_label_set_text(lbl_z_plus1000, "+1000");
+    lv_obj_set_style_text_font(lbl_z_plus1000, &lv_font_montserrat_12, 0);
+    lv_obj_center(lbl_z_plus1000);
+}
+
+// XY Step button event handler
+void UITabControlJog::xy_step_button_event_cb(lv_event_t *e) {
+    int index = (int)(intptr_t)lv_event_get_user_data(e);
+    static const float step_values[] = {0.1f, 1.0f, 10.0f, 50.0f, 100.0f, 500.0f};
+    
+    xy_current_step_index = index;
+    xy_current_step = step_values[index];
+    update_xy_step_display();
+    update_xy_step_button_styles();
+    
+    Serial.printf("XY Step size changed to: %.1f\n", xy_current_step);
+}
+
+// Z Step button event handler
+void UITabControlJog::z_step_button_event_cb(lv_event_t *e) {
+    int index = (int)(intptr_t)lv_event_get_user_data(e);
+    static const float step_values[] = {0.1f, 1.0f, 10.0f};
+    
+    z_current_step_index = index;
+    z_current_step = step_values[index];
+    update_z_step_display();
+    update_z_step_button_styles();
+    
+    Serial.printf("Z Step size changed to: %.1f\n", z_current_step);
+}
+
+// Update the XY step display in the center button
+void UITabControlJog::update_xy_step_display() {
+    if (xy_step_display_label != nullptr && xy_feedrate_label != nullptr) {
+        const char *feedrate_text = lv_label_get_text(xy_feedrate_label);
+        char buf[32];
+        if (xy_current_step < 1.0f) {
+            snprintf(buf, sizeof(buf), "S:%.1f\nF:%s", xy_current_step, feedrate_text);
+        } else {
+            snprintf(buf, sizeof(buf), "S:%.0f\nF:%s", xy_current_step, feedrate_text);
+        }
+        lv_label_set_text(xy_step_display_label, buf);
+    }
+}
+
+// Update the Z step display between up/down buttons
+void UITabControlJog::update_z_step_display() {
+    if (z_step_display_label != nullptr && z_feedrate_label != nullptr) {
+        const char *feedrate_text = lv_label_get_text(z_feedrate_label);
+        char buf[32];
+        if (z_current_step < 1.0f) {
+            snprintf(buf, sizeof(buf), "S:%.1f\nF:%s", z_current_step, feedrate_text);
+        } else {
+            snprintf(buf, sizeof(buf), "S:%.0f\nF:%s", z_current_step, feedrate_text);
+        }
+        lv_label_set_text(z_step_display_label, buf);
+    }
+}
+
+// Update XY button styles to highlight the selected step
+void UITabControlJog::update_xy_step_button_styles() {
+    for (int i = 0; i < 6; i++) {
+        if (xy_step_buttons[i] != nullptr) {
+            if (i == xy_current_step_index) {
+                lv_obj_set_style_bg_color(xy_step_buttons[i], lv_color_hex(0x0078D7), LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_bg_color(xy_step_buttons[i], lv_color_hex(0x005FA3), LV_PART_MAIN | LV_STATE_PRESSED);
+            } else {
+                lv_obj_set_style_bg_color(xy_step_buttons[i], lv_color_hex(0x333333), LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_bg_color(xy_step_buttons[i], lv_color_hex(0x555555), LV_PART_MAIN | LV_STATE_PRESSED);
+            }
+        }
+    }
+}
+
+// Update Z button styles to highlight the selected step
+void UITabControlJog::update_z_step_button_styles() {
+    for (int i = 0; i < 3; i++) {
+        if (z_step_buttons[i] != nullptr) {
+            if (i == z_current_step_index) {
+                lv_obj_set_style_bg_color(z_step_buttons[i], lv_color_hex(0x0078D7), LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_bg_color(z_step_buttons[i], lv_color_hex(0x005FA3), LV_PART_MAIN | LV_STATE_PRESSED);
+            } else {
+                lv_obj_set_style_bg_color(z_step_buttons[i], lv_color_hex(0x333333), LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_bg_color(z_step_buttons[i], lv_color_hex(0x555555), LV_PART_MAIN | LV_STATE_PRESSED);
+            }
+        }
+    }
+}
+
+// XY Feedrate adjustment button event handler
+void UITabControlJog::xy_feedrate_adj_event_cb(lv_event_t *e) {
+    int adjustment = (int)(intptr_t)lv_event_get_user_data(e);
+    
+    if (xy_feedrate_label != nullptr) {
+        const char *current_text = lv_label_get_text(xy_feedrate_label);
+        int current_value = atoi(current_text);
+        int new_value = current_value + adjustment;
+        
+        // Clamp to reasonable range (100-10000 mm/min)
+        if (new_value < 100) new_value = 100;
+        if (new_value > 10000) new_value = 10000;
+        
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%d", new_value);
+        lv_label_set_text(xy_feedrate_label, buf);
+        
+        // Update the center display to show new feedrate
+        update_xy_step_display();
+        
+        Serial.printf("XY Feedrate adjusted by %d to: %d mm/min\n", adjustment, new_value);
+    }
+}
+
+// Z Feedrate adjustment button event handler
+void UITabControlJog::z_feedrate_adj_event_cb(lv_event_t *e) {
+    int adjustment = (int)(intptr_t)lv_event_get_user_data(e);
+    
+    if (z_feedrate_label != nullptr) {
+        const char *current_text = lv_label_get_text(z_feedrate_label);
+        int current_value = atoi(current_text);
+        int new_value = current_value + adjustment;
+        
+        // Clamp to reasonable range (50-5000 mm/min)
+        if (new_value < 50) new_value = 50;
+        if (new_value > 5000) new_value = 5000;
+        
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%d", new_value);
+        lv_label_set_text(z_feedrate_label, buf);
+        
+        // Update the center display to show new feedrate
+        update_z_step_display();
+        
+        Serial.printf("Z Feedrate adjusted by %d to: %d mm/min\n", adjustment, new_value);
+    }
 }

@@ -21,7 +21,7 @@
 
 // UI Layout constants
 #define STATUS_BAR_HEIGHT 60
-#define TAB_BUTTON_HEIGHT 50
+#define TAB_BUTTON_HEIGHT 60
 
 // Display buffer configuration
 #define BUFFER_LINES 160  // 1/3 screen buffer (160 lines) for good performance without excessive memory use
