@@ -61,14 +61,29 @@ void UITabControlJog::create(lv_obj_t *tab) {
         450, 0, -450   // Bottom row
     };
     
+    // Axis colors for direction buttons: 0=NW, 1=N, 2=NE, 3=W, 4=center, 5=E, 6=SW, 7=S, 8=SE
+    static const lv_color_t xy_axis_colors[] = {
+        UITheme::AXIS_XY,  // NW - diagonal
+        UITheme::AXIS_Y,   // N - Y axis
+        UITheme::AXIS_XY,  // NE - diagonal
+        UITheme::AXIS_X,   // W - X axis
+        UITheme::BG_DARKER,// Center - display only
+        UITheme::AXIS_X,   // E - X axis
+        UITheme::AXIS_XY,  // SW - diagonal
+        UITheme::AXIS_Y,   // S - Y axis
+        UITheme::AXIS_XY   // SE - diagonal
+    };
+    
     for (int i = 0; i < 9; i++) {
         lv_obj_t *btn_xy = lv_button_create(tab);
         lv_obj_set_size(btn_xy, 70, 70);
         lv_obj_set_pos(btn_xy, 85 + (i % 3) * 80, 30 + (i / 3) * 80);
         
+        // Apply axis-specific colors
+        lv_obj_set_style_bg_color(btn_xy, xy_axis_colors[i], 0);
+        
         // Special styling for center button (step display)
         if (i == 4) {
-            lv_obj_set_style_bg_color(btn_xy, UITheme::BG_DARKER, 0);
             lv_obj_clear_flag(btn_xy, LV_OBJ_FLAG_CLICKABLE);
         }
         
@@ -176,6 +191,7 @@ void UITabControlJog::create(lv_obj_t *tab) {
     lv_obj_t *btn_z_up = lv_button_create(tab);
     lv_obj_set_size(btn_z_up, 70, 70);
     lv_obj_set_pos(btn_z_up, 460, 30);
+    lv_obj_set_style_bg_color(btn_z_up, UITheme::AXIS_Z, 0);
     lv_obj_t *lbl_z_up = lv_label_create(btn_z_up);
     lv_label_set_text(lbl_z_up, LV_SYMBOL_UP);
     lv_obj_set_style_text_font(lbl_z_up, &lv_font_montserrat_32, 0);
@@ -199,6 +215,7 @@ void UITabControlJog::create(lv_obj_t *tab) {
     lv_obj_t *btn_z_down = lv_button_create(tab);
     lv_obj_set_size(btn_z_down, 70, 70);
     lv_obj_set_pos(btn_z_down, 460, 190);
+    lv_obj_set_style_bg_color(btn_z_down, UITheme::AXIS_Z, 0);
     lv_obj_t *lbl_z_down = lv_label_create(btn_z_down);
     lv_label_set_text(lbl_z_down, LV_SYMBOL_DOWN);
     lv_obj_set_style_text_font(lbl_z_down, &lv_font_montserrat_32, 0);

@@ -31,9 +31,10 @@ namespace UITheme {
     static constexpr lv_color_t STATE_UNKNOWN = LV_COLOR_MAKE(0xCC, 0xCC, 0xCC);// Unknown state (gray)
     
     // Axis Colors
-    static constexpr lv_color_t AXIS_X = LV_COLOR_MAKE(0x00, 0xBF, 0xFF);       // X-axis (cyan)
-    static constexpr lv_color_t AXIS_Y = LV_COLOR_MAKE(0x00, 0xFF, 0x00);       // Y-axis (green)
-    static constexpr lv_color_t AXIS_Z = LV_COLOR_MAKE(0xFF, 0x00, 0xFF);       // Z-axis (magenta)
+    static constexpr lv_color_t AXIS_X = LV_COLOR_MAKE(0x00, 0x6F, 0xAA);       // X-axis (darker blue-cyan)
+    static constexpr lv_color_t AXIS_Y = LV_COLOR_MAKE(0x00, 0xAA, 0x00);       // Y-axis (darker green)
+    static constexpr lv_color_t AXIS_Z = LV_COLOR_MAKE(0x9B, 0x59, 0xB6);       // Z-axis (purple)
+    static constexpr lv_color_t AXIS_XY = LV_COLOR_MAKE(0x00, 0xAA, 0x88);      // XY combined (teal, between cyan and green)
     
     // Position Display Colors
     static constexpr lv_color_t POS_MACHINE = LV_COLOR_MAKE(0x00, 0xBF, 0xFF);  // Machine position label (cyan)
@@ -70,7 +71,7 @@ namespace UITheme {
     static constexpr lv_color_t JOYSTICK_BG = LV_COLOR_MAKE(0x30, 0x30, 0x30);  // Joystick background
     static constexpr lv_color_t JOYSTICK_LINE = LV_COLOR_MAKE(0x60, 0x60, 0x60); // Joystick crosshairs
     static constexpr lv_color_t JOYSTICK_BORDER = LV_COLOR_MAKE(0x80, 0x80, 0x80); // Joystick border
-    static constexpr lv_color_t JOYSTICK_XY = LV_COLOR_MAKE(0x00, 0xBF, 0xFF);  // XY-axis joystick knob (cyan)
+    static constexpr lv_color_t JOYSTICK_XY = LV_COLOR_MAKE(0x00, 0xAA, 0x88);  // XY-axis joystick knob (teal)
     static constexpr lv_color_t JOYSTICK_Z = LV_COLOR_MAKE(0x9B, 0x59, 0xB6);   // Z-axis joystick knob (purple)
     static constexpr lv_color_t PROBE_RESULTS_BG = LV_COLOR_MAKE(0x22, 0x22, 0x22); // Probe results background
     
