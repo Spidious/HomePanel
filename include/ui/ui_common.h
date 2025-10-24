@@ -8,6 +8,7 @@
 class UICommon {
 public:
     static void init(lv_display_t *disp);
+    static void createMainUI();  // Creates main UI screen, status bar, and tabs
     static void createStatusBar();
     
     // Update functions for status bar

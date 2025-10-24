@@ -73,19 +73,29 @@ The codebase follows a **strict modular pattern** with clear separation:
 ## Development Workflows
 
 ### Building & Flashing
+**CRITICAL**: On Windows, the `pio` shortcut often doesn't work. Use the full PlatformIO path:
+
 ```powershell
+# Windows: Full path to platformio.exe (replace USERNAME with your Windows username)
+$env:USERPROFILE\.platformio\penv\Scripts\platformio.exe run
+
+# Or use the explicit path:
+C:\Users\USERNAME\.platformio\penv\Scripts\platformio.exe run
+
 # Build project
-pio run
+platformio.exe run
 
 # Upload to ESP32-S3 (via USB)
-pio run -t upload
+platformio.exe run --target upload
 
 # Serial monitor (115200 baud)
-pio device monitor -b 115200
+platformio.exe device monitor -b 115200
 
 # Clean build
-pio run -t clean
+platformio.exe run -t clean
 ```
+
+**Windows Note**: If `platformio.exe` command fails, use the full path: `$env:USERPROFILE\.platformio\penv\Scripts\platformio.exe` instead of just `platformio.exe`
 
 ### Screenshot Debugging
 - WiFi credentials stored in ESP32 Preferences (`PREFS_NAMESPACE "fluidtouch"`)

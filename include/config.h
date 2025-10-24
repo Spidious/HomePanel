@@ -27,7 +27,7 @@
 #define BUFFER_LINES 160  // 1/3 screen buffer (160 lines) for good performance without excessive memory use
 
 // Timing constants
-#define SPLASH_DURATION_MS 2500
+#define SPLASH_DURATION_MS 3000
 
 // Preferences namespace
 #define PREFS_NAMESPACE "fluidtouch"

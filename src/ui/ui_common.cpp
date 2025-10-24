@@ -1,6 +1,7 @@
 #include "ui/ui_common.h"
 #include "ui/ui_tabs.h"
 #include "ui/ui_theme.h"
+#include "ui/machine_config.h"
 #include "config.h"
 #include <Preferences.h>
 #include <WiFi.h>
@@ -37,6 +38,25 @@ static void status_bar_click_handler(lv_event_t *e) {
 
 void UICommon::init(lv_display_t *disp) {
     display = disp;
+}
+
+void UICommon::createMainUI() {
+    Serial.println("UICommon: Creating main UI");
+    
+    // Create main screen
+    lv_obj_t *main_screen = lv_obj_create(nullptr);
+    lv_obj_set_style_bg_color(main_screen, UITheme::BG_DARKER, LV_PART_MAIN);
+    
+    // Load the new screen
+    lv_scr_load(main_screen);
+    
+    // Create status bar
+    createStatusBar();
+    
+    // Create all tabs
+    UITabs::createTabs();
+    
+    Serial.println("UICommon: Main UI created");
 }
 
 void UICommon::createStatusBar() {
@@ -115,20 +135,15 @@ void UICommon::createStatusBar() {
     lv_obj_align(lbl_mpos_z, LV_ALIGN_BOTTOM_MID, 110, -3);  // 100 + 10 = 110
 
     // Right side Line 1: Machine name with symbol
-    // Get selected machine from preferences
-    Preferences prefs;
-    prefs.begin(PREFS_NAMESPACE, true);
-    String machine_name = prefs.getString("machine", "No Machine");
-    prefs.end();
-    
-    // Determine connection symbol based on machine name
+    // Get selected machine from config manager
+    MachineConfig selected_machine;
     String machine_display;
-    if (machine_name == "Test Wired Machine") {
-        machine_display = LV_SYMBOL_USB " " + machine_name;
-    } else if (machine_name != "No Machine") {
-        machine_display = LV_SYMBOL_WIFI " " + machine_name;
+    
+    if (MachineConfigManager::getSelectedMachine(selected_machine)) {
+        const char *symbol = (selected_machine.connection_type == CONN_WIRELESS) ? LV_SYMBOL_WIFI : LV_SYMBOL_USB;
+        machine_display = String(symbol) + " " + String(selected_machine.name);
     } else {
-        machine_display = machine_name;
+        machine_display = "No Machine";
     }
     
     lbl_modal_states = lv_label_create(status_bar);
