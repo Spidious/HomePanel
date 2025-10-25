@@ -45,6 +45,10 @@ private:
     static lv_obj_t *lbl_mpos_x;
     static lv_obj_t *lbl_mpos_y;
     static lv_obj_t *lbl_mpos_z;
+    
+    // Cached values for delta checking (prevent unnecessary redraws)
+    static float last_wpos_x, last_wpos_y, last_wpos_z;
+    static float last_mpos_x, last_mpos_y, last_mpos_z;
 };
 
 #endif // UI_COMMON_H

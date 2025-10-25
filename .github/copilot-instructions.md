@@ -21,6 +21,7 @@ The codebase follows a **strict modular pattern** with clear separation:
    - `DisplayDriver` - LovyanGFX RGB parallel display with LVGL integration
    - `TouchDriver` - GT911 I2C touch controller with LVGL input device
    - `ScreenshotServer` - WiFi web server for remote screenshots via LovyanGFX `readRect()`
+   - `FluidNCClient` - WebSocket client for FluidNC communication with automatic status reporting
 
 2. **UI Module Hierarchy** (all under `ui/` subdirectory):
    - `UICommon` - Shared status bar with machine/WiFi info and position displays
@@ -38,21 +39,44 @@ The codebase follows a **strict modular pattern** with clear separation:
 ### LVGL 9.3 Specifics
 - **Color depth**: RGB565 (16-bit) via `LV_COLOR_DEPTH 16`
 - **Memory**: 256KB LVGL heap allocated in PSRAM (see `lv_conf.h`)
-- **Display buffers**: Dual 1/3-screen buffers (800×160 lines each) in PSRAM
+- **Display buffers**: Dual full-screen buffers (800×480 lines each) in PSRAM for smooth rendering
 - **Tick handling**: Manual `lv_tick_inc()` + `lv_timer_handler()` in main loop every 5ms
 - **No scrolling**: Most tabs disable `LV_OBJ_FLAG_SCROLLABLE` for fixed layouts
 - **Font**: Montserrat 18pt for tab buttons and primary UI text
 - **Event handling**: Use `LV_EVENT_CLICKED` (standard press+release) for all UI interactions - more forgiving of natural finger movement than `LV_EVENT_SHORT_CLICKED`
+- **Label updates**: Use delta checking to prevent unnecessary redraws - only call `lv_label_set_text()` when values change
 
 ### Critical Integration Points
 1. **Main loop sequence** (`main.cpp`):
    ```cpp
    DisplayDriver::init() → TouchDriver::init() → ScreenshotServer::init()
-   → UISplash::show() → UIMachineSelect::show() → [user selects machine]
-   → UICommon::init() → UICommon::createStatusBar() → UITabs::createTabs()
+   → FluidNCClient::init() → UISplash::show() → UIMachineSelect::show() 
+   → [user selects machine] → UICommon::createMainUI() → FluidNCClient::connect()
+   → UICommon::createStatusBar() → UITabs::createTabs()
    ```
 
-2. **Machine Selection**:
+2. **FluidNC Communication**:
+   - WebSocket client connects to FluidNC using machine configuration (IP/hostname + port, default 81)
+   - Uses **automatic reporting** (`$Report/Interval=250`) instead of polling - FluidNC pushes updates every 250ms
+   - Parses three message types:
+     - Status reports (binary frames): `<Idle|MPos:x,y,z|FS:feed,spindle|Ov:feed,rapid,spindle|WCO:x,y,z>`
+     - GCode parser state: `[GC:G0 G54 G17 G21 G90 G94 M5 M9 T0 F0 S0]`
+     - Realtime feedback: `[MSG:...]`, `[G92:...]`, etc.
+   - **Work Position Calculation**: WPos = MPos - WCO (Work Coordinate Offset)
+     - FluidNC sends MPos in every status report
+     - WCO is sent periodically (not every report) to save bandwidth
+     - WCO values are cached and used for continuous WPos calculation
+   - **Feed/Spindle Values**: Parsed from both status reports (FS:) and GCode state (F/S)
+     - Status report FS: values are current/actual feed and spindle
+     - GCode state F/S values are programmed/commanded values (used as fallback)
+   - **Delta Checking**: UI updates use cached values to prevent unnecessary redraws
+     - Only updates labels when values actually change
+     - Eliminates visual glitches from constant LVGL label redraws
+     - Cached values initialized to sentinel values (-9999 for positions, -1 for rates)
+   - UI updates every 250ms from FluidNC status in main loop
+   - Connection initiated after machine selection in `UICommon::createMainUI()`
+
+3. **Machine Selection**:
    - `UIMachineSelect` supports up to 5 machines with reordering (up/down buttons), edit, delete, and add functionality
    - Machines stored in Preferences as array under "machines" key (MachineConfig struct)
    - Selected machine stored in Preferences under "machine" key
@@ -177,11 +201,12 @@ All other hardcoded values live in `include/config.h`:
 - **`include/lv_conf.h`**: LVGL configuration (color depth, memory, features) - 1400+ lines
 - **`src/main.cpp`**: Entry point, initialization sequence, main loop with LVGL tick handling
 - **`src/display_driver.cpp`**: LovyanGFX RGB parallel setup (lines 11-63 are pin mappings)
-- **`include/config.h`**: Central configuration for ALL hardcoded values
+- **`include/config.h`**: Central configuration for ALL hardcoded values (BUFFER_LINES=480 for full-screen buffering)
 - **`src/screenshot_server.cpp`**: WiFi setup, BMP conversion from RGB565 frame buffer
-- **`src/ui/ui_common.cpp`**: Status bar implementation with separate axis labels and clickable left/right areas for navigation and machine switching
+- **`src/fluidnc_client.cpp`**: FluidNC WebSocket client with automatic reporting, status parsing, WCO handling, and F/S parsing from both status reports and GCode state
+- **`src/ui/ui_common.cpp`**: Status bar implementation with separate axis labels, delta checking for smooth updates, and clickable left/right areas for navigation and machine switching
 - **`src/ui/ui_machine_select.cpp`**: Machine selection screen with reordering, edit, delete, and add functionality (up to 5 machines stored in Preferences)
-- **`src/ui/tabs/ui_tab_status.cpp`**: Status tab with position displays, modal states (8 fields: WCS, PLANE, DIST, UNITS, MOTION, SPINDLE, COOLANT, TOOL), and message field
+- **`src/ui/tabs/ui_tab_status.cpp`**: Status tab with delta-checked position displays, feed/spindle rates with overrides, 8 modal state fields, and message display
 
 ### Status Tab Layout (ui_tab_status.cpp)
 - **Top Section**: STATE (left) + MESSAGE (right, aligned with Machine Position at x=250)
@@ -198,15 +223,19 @@ All other hardcoded values live in `include/config.h`:
 2. **LVGL tick**: Forgetting `lv_tick_inc()` breaks timers and input devices - must call every loop
 3. **File structure**: UI files MUST be in `ui/` subdirectory (both `include/ui/` and `src/ui/`)
 4. **Tab scrolling**: Most tabs have scrolling disabled - re-enable only if content exceeds screen height
-5. **Display buffer size**: Changing `BUFFER_LINES` in `config.h` affects memory usage and performance
+5. **Display buffer size**: BUFFER_LINES=480 for full-screen buffering - provides smooth rendering with 8MB PSRAM available
 6. **RGB565 byte order**: LovyanGFX returns byte-swapped RGB565 - swap before decoding (see `screenshot_server.cpp:19-29`)
 7. **Color usage**: NEVER use `lv_color_hex()` directly - always use `UITheme::*` constants for maintainability and consistency
 8. **Event types**: Always use `LV_EVENT_CLICKED` for touch interactions - provides better UX than `LV_EVENT_SHORT_CLICKED` by being more tolerant of slight finger movement
-9. **Machine switching**: Use `ESP.restart()` to switch between machines - cleanly avoids LVGL memory fragmentation issues that can occur when rebuilding entire UI trees
+9. **Label updates**: Always use delta checking - only call `lv_label_set_text()` when values actually change to prevent visual glitches
+10. **Static label pointers**: UI update methods require static member pointers to labels - never use local variables for labels that need live updates
+11. **Machine switching**: Use `ESP.restart()` to switch between machines - cleanly avoids LVGL memory fragmentation issues that can occur when rebuilding entire UI trees
+12. **WCO caching**: Work position requires cached WCO values since FluidNC only sends WCO periodically - calculate WPos = MPos - WCO on every status update
 
 ## External Dependencies
 
-- **FluidNC**: CNC controller firmware (target device, not integrated yet)
+- **FluidNC**: CNC controller firmware (WebSocket connection on port 81, automatic reporting enabled)
 - **LVGL 9.3.0**: UI library via PlatformIO lib_deps
 - **LovyanGFX 1.2.7+**: Hardware display driver with RGB parallel support
+- **WebSockets 2.5.4+**: WebSocket client library for FluidNC communication
 - **ESP32 Arduino Framework**: Core platform APIs (Wire, WiFi, WebServer, Preferences)

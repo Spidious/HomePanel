@@ -3,11 +3,13 @@
 #include "display_driver.h"     // Display driver module
 #include "touch_driver.h"       // Touch driver module
 #include "screenshot_server.h"  // Screenshot web server
+#include "fluidnc_client.h"     // FluidNC WebSocket client
 #include "ui/ui_theme.h"        // UI theme colors
 #include "ui/ui_splash.h"       // Splash screen module
 #include "ui/ui_machine_select.h" // Machine selection screen
 #include "ui/ui_common.h"       // UI common components (status bar)
 #include "ui/ui_tabs.h"         // UI tabs module
+#include "ui/tabs/ui_tab_status.h" // Status tab for updates
 
 void setup()
 {
@@ -43,6 +45,10 @@ void setup()
         Serial.println("Screenshot server available at: http://" + ScreenshotServer::getIPAddress());
     }
 
+    // Initialize FluidNC Client
+    Serial.println("Initializing FluidNC client...");
+    FluidNCClient::init();
+
     // Show splash screen
     Serial.println("Showing splash screen...");
     UISplash::show(displayDriver.getDisplay());
@@ -58,9 +64,50 @@ void loop()
     // Handle screenshot server web requests
     ScreenshotServer::handleClient();
     
+    // Handle FluidNC client WebSocket events
+    FluidNCClient::loop();
+    
+    // Update UI from FluidNC status (every 250ms)
+    static uint32_t lastUIUpdate = 0;
+    uint32_t currentMillis = millis();
+    if (currentMillis - lastUIUpdate >= 250 && FluidNCClient::isConnected()) {
+        lastUIUpdate = currentMillis;
+        
+        const FluidNCStatus& status = FluidNCClient::getStatus();
+        
+        // Update status bar
+        const char* state_str = "IDLE";
+        switch (status.state) {
+            case STATE_IDLE: state_str = "IDLE"; break;
+            case STATE_RUN: state_str = "RUN"; break;
+            case STATE_HOLD: state_str = "HOLD"; break;
+            case STATE_JOG: state_str = "JOG"; break;
+            case STATE_ALARM: state_str = "ALARM"; break;
+            case STATE_DOOR: state_str = "DOOR"; break;
+            case STATE_CHECK: state_str = "CHECK"; break;
+            case STATE_HOME: state_str = "HOME"; break;
+            case STATE_SLEEP: state_str = "SLEEP"; break;
+            default: state_str = "DISCONNECTED"; break;
+        }
+        
+        UICommon::updateMachineState(state_str);
+        UICommon::updateMachinePosition(status.mpos_x, status.mpos_y, status.mpos_z);
+        UICommon::updateWorkPosition(status.wpos_x, status.wpos_y, status.wpos_z);
+        
+        // Update Status tab
+        UITabStatus::updateState(state_str);
+        UITabStatus::updateWorkPosition(status.wpos_x, status.wpos_y, status.wpos_z);
+        UITabStatus::updateMachinePosition(status.mpos_x, status.mpos_y, status.mpos_z);
+        UITabStatus::updateFeedRate(status.feed_rate, status.feed_override);
+        UITabStatus::updateSpindle(status.spindle_speed, status.spindle_override);
+        UITabStatus::updateModalStates(status.modal_wcs, status.modal_plane, status.modal_distance,
+                                      status.modal_units, status.modal_motion, status.modal_spindle,
+                                      status.modal_coolant, status.modal_tool);
+        UITabStatus::updateMessage(status.last_message);
+    }
+    
     // Update LVGL tick (CRITICAL for timers and input device polling!)
     static uint32_t lastTick = 0;
-    uint32_t currentMillis = millis();
     lv_tick_inc(currentMillis - lastTick);
     lastTick = currentMillis;
     
@@ -71,6 +118,8 @@ void loop()
     static unsigned long lastUpdate = 0;
     if (millis() - lastUpdate > 5000) {
         lastUpdate = millis();
-        Serial.printf("[%lu] LVGL running, Free heap: %d\n", millis()/1000, ESP.getFreeHeap());
+        Serial.printf("[%lu] LVGL running, Free heap: %d, FluidNC: %s\n", 
+                      millis()/1000, ESP.getFreeHeap(),
+                      FluidNCClient::isConnected() ? "Connected" : "Disconnected");
     }
 }

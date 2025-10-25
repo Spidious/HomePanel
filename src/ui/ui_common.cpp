@@ -3,6 +3,7 @@
 #include "ui/ui_theme.h"
 #include "ui/machine_config.h"
 #include "ui/ui_machine_select.h"
+#include "fluidnc_client.h"
 #include "config.h"
 #include <Preferences.h>
 #include <WiFi.h>
@@ -27,6 +28,14 @@ lv_obj_t *UICommon::lbl_mpos_label = nullptr;
 lv_obj_t *UICommon::lbl_mpos_x = nullptr;
 lv_obj_t *UICommon::lbl_mpos_y = nullptr;
 lv_obj_t *UICommon::lbl_mpos_z = nullptr;
+
+// Cached values for delta checking
+float UICommon::last_wpos_x = -9999.0f;
+float UICommon::last_wpos_y = -9999.0f;
+float UICommon::last_wpos_z = -9999.0f;
+float UICommon::last_mpos_x = -9999.0f;
+float UICommon::last_mpos_y = -9999.0f;
+float UICommon::last_mpos_z = -9999.0f;
 
 // Event handler for status bar left area click (go to Status tab)
 static void status_bar_left_click_handler(lv_event_t *e) {
@@ -93,6 +102,16 @@ void UICommon::createMainUI() {
     
     // Create all tabs
     UITabs::createTabs();
+    
+    // Connect to FluidNC using selected machine
+    MachineConfig config;
+    if (MachineConfigManager::getSelectedMachine(config)) {
+        Serial.printf("UICommon: Connecting to FluidNC at %s:%d\n", 
+                     config.fluidnc_url, config.websocket_port);
+        FluidNCClient::connect(config);
+    } else {
+        Serial.println("UICommon: Warning - No machine selected, cannot connect to FluidNC");
+    }
     
     Serial.println("UICommon: Main UI created");
 }
@@ -226,47 +245,68 @@ void UICommon::updateModalStates(const char *text) {
 }
 
 void UICommon::updateMachinePosition(float x, float y, float z) {
-    if (status_bar && lbl_mpos_x) {
-        lv_label_set_text_fmt(lbl_mpos_x, "X:%08.3f", x);
+    // Only update if values changed (avoid unnecessary redraws)
+    if (x == last_mpos_x && y == last_mpos_y && z == last_mpos_z) {
+        return;
     }
-    if (status_bar && lbl_mpos_y) {
-        lv_label_set_text_fmt(lbl_mpos_y, "Y:%08.3f", y);
+    
+    char buf[16];
+    
+    if (status_bar && lbl_mpos_x && x != last_mpos_x) {
+        snprintf(buf, sizeof(buf), "X:%04.3f", x);
+        lv_label_set_text(lbl_mpos_x, buf);
+        last_mpos_x = x;
     }
-    if (status_bar && lbl_mpos_z) {
-        lv_label_set_text_fmt(lbl_mpos_z, "Z:%08.3f", z);
+    if (status_bar && lbl_mpos_y && y != last_mpos_y) {
+        snprintf(buf, sizeof(buf), "Y:%04.3f", y);
+        lv_label_set_text(lbl_mpos_y, buf);
+        last_mpos_y = y;
+    }
+    if (status_bar && lbl_mpos_z && z != last_mpos_z) {
+        snprintf(buf, sizeof(buf), "Z:%04.3f", z);
+        lv_label_set_text(lbl_mpos_z, buf);
+        last_mpos_z = z;
     }
 }
 
 void UICommon::updateWorkPosition(float x, float y, float z) {
-    if (status_bar && lbl_wpos_x) {
-        lv_label_set_text_fmt(lbl_wpos_x, "X:%08.3f", x);
+    // Only update if values changed (avoid unnecessary redraws)
+    if (x == last_wpos_x && y == last_wpos_y && z == last_wpos_z) {
+        return;
     }
-    if (status_bar && lbl_wpos_y) {
-        lv_label_set_text_fmt(lbl_wpos_y, "Y:%08.3f", y);
+    
+    char buf[16];
+    
+    if (status_bar && lbl_wpos_x && x != last_wpos_x) {
+        snprintf(buf, sizeof(buf), "X:%04.3f", x);
+        lv_label_set_text(lbl_wpos_x, buf);
+        last_wpos_x = x;
     }
-    if (status_bar && lbl_wpos_z) {
-        lv_label_set_text_fmt(lbl_wpos_z, "Z:%08.3f", z);
+    if (status_bar && lbl_wpos_y && y != last_wpos_y) {
+        snprintf(buf, sizeof(buf), "Y:%04.3f", y);
+        lv_label_set_text(lbl_wpos_y, buf);
+        last_wpos_y = y;
+    }
+    if (status_bar && lbl_wpos_z && z != last_wpos_z) {
+        snprintf(buf, sizeof(buf), "Z:%04.3f", z);
+        lv_label_set_text(lbl_wpos_z, buf);
+        last_wpos_z = z;
     }
 }
 
 void UICommon::updateMachineState(const char *state) {
     if (status_bar && lbl_status) {
-        // Convert to uppercase
-        String state_upper = String(state);
-        state_upper.toUpperCase();
-        lv_label_set_text(lbl_status, state_upper.c_str());
+        lv_label_set_text(lbl_status, state);
         
-        // Color code the status
-        if (strcmp(state, "Idle") == 0) {
-            lv_obj_set_style_text_color(lbl_status, UITheme::STATE_IDLE, 0); // Green
-        } else if (strcmp(state, "Run") == 0 || strcmp(state, "Jog") == 0) {
-            lv_obj_set_style_text_color(lbl_status, UITheme::STATE_RUN, 0); // Cyan
-        } else if (strcmp(state, "Alarm") == 0 || strcmp(state, "Error") == 0) {
-            lv_obj_set_style_text_color(lbl_status, UITheme::STATE_ALARM, 0); // Red
-        } else if (strcmp(state, "Hold") == 0) {
-            lv_obj_set_style_text_color(lbl_status, UITheme::STATE_HOLD, 0); // Yellow
+        // Color code the status (state is already uppercase)
+        if (strcmp(state, "IDLE") == 0) {
+            lv_obj_set_style_text_color(lbl_status, UITheme::STATE_IDLE, 0);
+        } else if (strcmp(state, "RUN") == 0 || strcmp(state, "JOG") == 0) {
+            lv_obj_set_style_text_color(lbl_status, UITheme::STATE_RUN, 0);
+        } else if (strcmp(state, "ALARM") == 0) {
+            lv_obj_set_style_text_color(lbl_status, UITheme::STATE_ALARM, 0);
         } else {
-            lv_obj_set_style_text_color(lbl_status, UITheme::STATE_UNKNOWN, 0); // Gray
+            lv_obj_set_style_text_color(lbl_status, UITheme::UI_WARNING, 0);
         }
     }
 }

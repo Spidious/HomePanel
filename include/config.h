@@ -24,7 +24,7 @@
 #define TAB_BUTTON_HEIGHT 60
 
 // Display buffer configuration
-#define BUFFER_LINES 160  // 1/3 screen buffer (160 lines) for good performance without excessive memory use
+#define BUFFER_LINES 480  // Full screen buffer for smooth rendering (with 8MB PSRAM available)
 
 // Timing constants
 #define SPLASH_DURATION_MS 3000
