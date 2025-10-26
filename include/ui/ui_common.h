@@ -21,6 +21,11 @@ public:
     // Dialog functions
     static void showMachineSelectConfirmDialog();
     static void hideMachineSelectConfirmDialog();
+    static void showConnectingPopup(const char *machine_name, const char *ssid);
+    static void hideConnectingPopup();
+    static void showConnectionErrorDialog(const char *title, const char *message);
+    static void hideConnectionErrorDialog();
+    static void checkConnectionTimeout();  // Non-blocking timeout check
     
     // Getters for shared objects
     static lv_obj_t* getStatusBar() { return status_bar; }
@@ -32,6 +37,8 @@ private:
     static lv_obj_t *status_bar_left_area;   // Clickable area for Status tab
     static lv_obj_t *status_bar_right_area;  // Clickable area for machine selection
     static lv_obj_t *machine_select_dialog;  // Confirmation dialog
+    static lv_obj_t *connecting_popup;       // Connecting popup
+    static lv_obj_t *connection_error_dialog; // Connection error dialog
     static lv_obj_t *lbl_modal_states;
     static lv_obj_t *lbl_status;
     

@@ -1,4 +1,5 @@
 #include "ui/tabs/control/ui_tab_control_jog.h"
+#include "ui/tabs/settings/ui_tab_settings_jog.h"
 #include "ui/ui_theme.h"
 #include "fluidnc_client.h"
 #include <Arduino.h>
@@ -10,12 +11,39 @@ lv_obj_t *UITabControlJog::xy_step_buttons[6] = {nullptr, nullptr, nullptr, null
 lv_obj_t *UITabControlJog::z_step_buttons[3] = {nullptr, nullptr, nullptr};
 lv_obj_t *UITabControlJog::xy_feedrate_label = nullptr;
 lv_obj_t *UITabControlJog::z_feedrate_label = nullptr;
-float UITabControlJog::xy_current_step = 10.0f;     // Default 10mm
-float UITabControlJog::z_current_step = 1.0f;       // Default 1mm
-int UITabControlJog::xy_current_step_index = 2;     // Default to index 2 (10mm)
-int UITabControlJog::z_current_step_index = 1;      // Default to index 1 (1mm)
+float UITabControlJog::xy_current_step = 10.0f;     // Will be loaded from settings
+float UITabControlJog::z_current_step = 1.0f;       // Will be loaded from settings
+int UITabControlJog::xy_current_step_index = 2;     // Will be recalculated
+int UITabControlJog::z_current_step_index = 1;      // Will be recalculated
 
 void UITabControlJog::create(lv_obj_t *tab) {
+    // Load default values from settings
+    UITabSettingsJog::loadPreferences();
+    xy_current_step = UITabSettingsJog::getDefaultXYStep();
+    z_current_step = UITabSettingsJog::getDefaultZStep();
+    
+    // Calculate the step index from the loaded value
+    static const float xy_step_values[] = {0.1f, 1.0f, 10.0f, 50.0f, 100.0f, 500.0f};
+    static const float z_step_values[] = {0.1f, 1.0f, 10.0f};
+    
+    // Find closest XY step index
+    xy_current_step_index = 2;  // Default to 10mm
+    for (int i = 0; i < 6; i++) {
+        if (fabs(xy_step_values[i] - xy_current_step) < 0.01f) {
+            xy_current_step_index = i;
+            break;
+        }
+    }
+    
+    // Find closest Z step index
+    z_current_step_index = 1;  // Default to 1mm
+    for (int i = 0; i < 3; i++) {
+        if (fabs(z_step_values[i] - z_current_step) < 0.01f) {
+            z_current_step_index = i;
+            break;
+        }
+    }
+    
     // Calculate available height - Control tab content area is ~370px
     
     // ========== XY Section (Left side) ==========
@@ -118,9 +146,11 @@ void UITabControlJog::create(lv_obj_t *tab) {
     lv_obj_set_style_text_font(xy_feed_label, &lv_font_montserrat_14, 0);
     lv_obj_set_pos(xy_feed_label, 85, 280);
     
-    // XY Feedrate value (plain text label)
+    // XY Feedrate value (plain text label) - load from settings
     xy_feedrate_label = lv_label_create(tab);
-    lv_label_set_text(xy_feedrate_label, "3000");
+    char xy_feed_buf[16];
+    snprintf(xy_feed_buf, sizeof(xy_feed_buf), "%.0f", UITabSettingsJog::getDefaultXYFeed());
+    lv_label_set_text(xy_feedrate_label, xy_feed_buf);
     lv_obj_set_style_text_font(xy_feedrate_label, &lv_font_montserrat_14, 0);
     lv_obj_set_pos(xy_feedrate_label, 155, 280);
     
@@ -236,9 +266,11 @@ void UITabControlJog::create(lv_obj_t *tab) {
     lv_obj_set_style_text_font(z_feed_label, &lv_font_montserrat_14, 0);
     lv_obj_set_pos(z_feed_label, 395, 280);
     
-    // Z Feedrate value (plain text label)
+    // Z Feedrate value (plain text label) - load from settings
     z_feedrate_label = lv_label_create(tab);
-    lv_label_set_text(z_feedrate_label, "1000");
+    char z_feed_buf[16];
+    snprintf(z_feed_buf, sizeof(z_feed_buf), "%.0f", UITabSettingsJog::getDefaultZFeed());
+    lv_label_set_text(z_feedrate_label, z_feed_buf);
     lv_obj_set_style_text_font(z_feedrate_label, &lv_font_montserrat_14, 0);
     lv_obj_set_pos(z_feedrate_label, 460, 280);
     

@@ -1,4 +1,5 @@
 #include "fluidnc_client.h"
+#include "ui/ui_common.h"
 #include <WiFi.h>
 
 // Static member initialization
@@ -101,13 +102,25 @@ void FluidNCClient::onWebSocketEvent(WStype_t type, uint8_t* payload, size_t len
     switch(type) {
         case WStype_DISCONNECTED:
             Serial.println("[FluidNC] WebSocket disconnected");
+            
+            // If we were previously connected, show error
+            if (currentStatus.is_connected) {
+                // Build error message
+                char error_msg[256];
+                snprintf(error_msg, sizeof(error_msg), 
+                        "Lost connection to machine.\n\nCheck network connection and\nmachine power, then restart.");
+                
+                // Show error dialog
+                UICommon::showConnectionErrorDialog("Machine Disconnected", error_msg);
+            }
+            
             currentStatus.is_connected = false;
             currentStatus.state = STATE_DISCONNECTED;
             break;
             
         case WStype_CONNECTED:
             Serial.printf("[FluidNC] WebSocket connected to: %s\n", payload);
-            currentStatus.is_connected = true;
+            // Don't set is_connected yet - wait for auto-report confirmation
             currentStatus.state = STATE_IDLE;
             currentStatus.last_update_ms = millis();
             
@@ -311,6 +324,20 @@ void FluidNCClient::parseStatusReport(const char* message) {
 void FluidNCClient::parseRealtimeFeedback(const char* message) {
     // Handle realtime feedback messages like [MSG:...], [G92:...], etc.
     Serial.printf("[FluidNC] Feedback: %s\n", message);
+    
+    // Check for auto-report confirmation message
+    if (strstr(message, "websocket auto report interval set") != nullptr) {
+        if (!currentStatus.is_connected) {
+            currentStatus.is_connected = true;
+            Serial.println("[FluidNC] ✓ Auto-report confirmed - connection established");
+            
+            // Hide connecting popup
+            UICommon::hideConnectingPopup();
+            
+            // Also hide error dialog if showing (connection succeeded after error)
+            UICommon::hideConnectionErrorDialog();
+        }
+    }
     
     // Extract message content from [MSG:...] format
     if (strncmp(message, "[MSG:", 5) == 0) {

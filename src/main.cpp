@@ -68,6 +68,9 @@ void loop()
     // Handle FluidNC client WebSocket events
     FluidNCClient::loop();
     
+    // Check for connection timeout (non-blocking)
+    UICommon::checkConnectionTimeout();
+    
     // Update UI from FluidNC status (every 250ms)
     static uint32_t lastUIUpdate = 0;
     uint32_t currentMillis = millis();

@@ -19,8 +19,19 @@ struct MachineConfig {
     uint16_t websocket_port; // WebSocket port (default 81)
     bool is_configured;      // Whether this slot has a valid machine
     
+    // Jog control defaults
+    float jog_xy_step;       // Default XY step size (mm)
+    float jog_z_step;        // Default Z step size (mm)
+    int jog_xy_feed;         // Default XY feed rate (mm/min)
+    int jog_z_feed;          // Default Z feed rate (mm/min)
+    int jog_max_xy_feed;     // Max XY feed for joystick (mm/min)
+    int jog_max_z_feed;      // Max Z feed for joystick (mm/min)
+    
     // Constructor with defaults
-    MachineConfig() : connection_type(CONN_WIRELESS), websocket_port(81), is_configured(false) {
+    MachineConfig() : connection_type(CONN_WIRELESS), websocket_port(81), is_configured(false),
+                      jog_xy_step(10.0f), jog_z_step(1.0f), 
+                      jog_xy_feed(3000), jog_z_feed(1000),
+                      jog_max_xy_feed(3000), jog_max_z_feed(1000) {
         name[0] = '\0';
         ssid[0] = '\0';
         password[0] = '\0';
@@ -53,9 +64,6 @@ public:
     
     // Get currently selected machine config
     static bool getSelectedMachine(MachineConfig &config);
-    
-    // Initialize with default machines (for first run)
-    static void initializeDefaults();
     
     // Check if machines are configured
     static bool hasConfiguredMachines();

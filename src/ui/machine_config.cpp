@@ -19,6 +19,14 @@ void MachineConfigManager::loadMachines(MachineConfig machines[MAX_MACHINES]) {
             prefs.getString((prefix + "pwd").c_str(), machines[i].password, sizeof(machines[i].password));
             prefs.getString((prefix + "url").c_str(), machines[i].fluidnc_url, sizeof(machines[i].fluidnc_url));
             machines[i].websocket_port = prefs.getUShort((prefix + "port").c_str(), 81);
+            
+            // Load jog settings (with defaults if not present)
+            machines[i].jog_xy_step = prefs.getFloat((prefix + "jxy_st").c_str(), 10.0f);
+            machines[i].jog_z_step = prefs.getFloat((prefix + "jz_st").c_str(), 1.0f);
+            machines[i].jog_xy_feed = prefs.getInt((prefix + "jxy_fd").c_str(), 3000);
+            machines[i].jog_z_feed = prefs.getInt((prefix + "jz_fd").c_str(), 1000);
+            machines[i].jog_max_xy_feed = prefs.getInt((prefix + "jxy_mx").c_str(), 3000);
+            machines[i].jog_max_z_feed = prefs.getInt((prefix + "jz_mx").c_str(), 1000);
         }
     }
     
@@ -41,6 +49,14 @@ void MachineConfigManager::saveMachines(const MachineConfig machines[MAX_MACHINE
             prefs.putString((prefix + "pwd").c_str(), machines[i].password);
             prefs.putString((prefix + "url").c_str(), machines[i].fluidnc_url);
             prefs.putUShort((prefix + "port").c_str(), machines[i].websocket_port);
+            
+            // Save jog settings
+            prefs.putFloat((prefix + "jxy_st").c_str(), machines[i].jog_xy_step);
+            prefs.putFloat((prefix + "jz_st").c_str(), machines[i].jog_z_step);
+            prefs.putInt((prefix + "jxy_fd").c_str(), machines[i].jog_xy_feed);
+            prefs.putInt((prefix + "jz_fd").c_str(), machines[i].jog_z_feed);
+            prefs.putInt((prefix + "jxy_mx").c_str(), machines[i].jog_max_xy_feed);
+            prefs.putInt((prefix + "jz_mx").c_str(), machines[i].jog_max_z_feed);
         }
     }
     
@@ -107,49 +123,6 @@ bool MachineConfigManager::getSelectedMachine(MachineConfig &config) {
         return getMachine(index, config);
     }
     return false;
-}
-
-void MachineConfigManager::initializeDefaults() {
-    MachineConfig machines[MAX_MACHINES];
-    
-    // Machine 0: V1E LowRider 3
-    strncpy(machines[0].name, "V1E LowRider 3", sizeof(machines[0].name));
-    machines[0].connection_type = CONN_WIRELESS;
-    strncpy(machines[0].ssid, "", sizeof(machines[0].ssid));  // User must configure
-    strncpy(machines[0].password, "", sizeof(machines[0].password));
-    strncpy(machines[0].fluidnc_url, "fluidnc.local", sizeof(machines[0].fluidnc_url));
-    machines[0].websocket_port = 81;
-    machines[0].is_configured = true;
-    
-    // Machine 1: Pen Plotter
-    strncpy(machines[1].name, "Pen Plotter", sizeof(machines[1].name));
-    machines[1].connection_type = CONN_WIRELESS;
-    strncpy(machines[1].ssid, "", sizeof(machines[1].ssid));
-    strncpy(machines[1].password, "", sizeof(machines[1].password));
-    strncpy(machines[1].fluidnc_url, "fluidnc.local", sizeof(machines[1].fluidnc_url));
-    machines[1].websocket_port = 81;
-    machines[1].is_configured = true;
-    
-    // Machine 2: Yeagbot
-    strncpy(machines[2].name, "Yeagbot", sizeof(machines[2].name));
-    machines[2].connection_type = CONN_WIRELESS;
-    strncpy(machines[2].ssid, "", sizeof(machines[2].ssid));
-    strncpy(machines[2].password, "", sizeof(machines[2].password));
-    strncpy(machines[2].fluidnc_url, "fluidnc.local", sizeof(machines[2].fluidnc_url));
-    machines[2].websocket_port = 81;
-    machines[2].is_configured = true;
-    
-    // Machine 3: Test Wired Machine
-    strncpy(machines[3].name, "Test Wired Machine", sizeof(machines[3].name));
-    machines[3].connection_type = CONN_WIRED;
-    machines[3].websocket_port = 81;
-    machines[3].is_configured = true;
-    
-    // Machine 4: Empty slot
-    machines[4].is_configured = false;
-    
-    saveMachines(machines);
-    Serial.println("MachineConfigManager: Initialized default machines");
 }
 
 bool MachineConfigManager::hasConfiguredMachines() {

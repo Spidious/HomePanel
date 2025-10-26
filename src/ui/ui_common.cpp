@@ -14,6 +14,8 @@ lv_obj_t *UICommon::status_bar = nullptr;
 lv_obj_t *UICommon::status_bar_left_area = nullptr;
 lv_obj_t *UICommon::status_bar_right_area = nullptr;
 lv_obj_t *UICommon::machine_select_dialog = nullptr;
+lv_obj_t *UICommon::connecting_popup = nullptr;
+lv_obj_t *UICommon::connection_error_dialog = nullptr;
 lv_obj_t *UICommon::lbl_modal_states = nullptr;
 lv_obj_t *UICommon::lbl_status = nullptr;
 
@@ -42,6 +44,11 @@ float UICommon::last_wpos_z = -9999.0f;
 float UICommon::last_mpos_x = -9999.0f;
 float UICommon::last_mpos_y = -9999.0f;
 float UICommon::last_mpos_z = -9999.0f;
+
+// Connection timeout tracking
+static uint32_t connection_timeout_start = 0;
+static bool connection_timeout_active = false;
+static bool connection_error_shown = false;
 
 // Event handler for status bar left area click (go to Status tab)
 static void status_bar_left_click_handler(lv_event_t *e) {
@@ -103,38 +110,7 @@ void UICommon::createMainUI() {
         return;
     }
     
-    // Initialize WiFi connection using machine-specific credentials
-    if (config.connection_type == CONN_WIRELESS) {
-        if (strlen(config.ssid) > 0) {
-            Serial.println("\n=== WiFi Connection ===");
-            Serial.printf("Connecting to WiFi: %s\n", config.ssid);
-            
-            WiFi.mode(WIFI_STA);
-            WiFi.begin(config.ssid, config.password);
-            
-            // Wait for connection with timeout (10 seconds)
-            int timeout = 20;
-            while (WiFi.status() != WL_CONNECTED && timeout > 0) {
-                delay(500);
-                Serial.print(".");
-                timeout--;
-            }
-            
-            if (WiFi.status() == WL_CONNECTED) {
-                Serial.println("\nWiFi connected!");
-                Serial.printf("IP Address: %s\n", WiFi.localIP().toString().c_str());
-            } else {
-                Serial.println("\nWiFi connection failed!");
-                Serial.println("Continuing without WiFi...");
-            }
-        } else {
-            Serial.println("UICommon: Warning - Wireless connection selected but no SSID configured");
-        }
-    } else {
-        Serial.println("UICommon: Wired connection selected, skipping WiFi initialization");
-    }
-    
-    // Create main screen
+    // Create main screen first
     lv_obj_t *main_screen = lv_obj_create(nullptr);
     lv_obj_set_style_bg_color(main_screen, UITheme::BG_DARKER, LV_PART_MAIN);
     
@@ -147,10 +123,75 @@ void UICommon::createMainUI() {
     // Create all tabs
     UITabs::createTabs();
     
+    // Initialize WiFi connection using machine-specific credentials
+    if (config.connection_type == CONN_WIRELESS) {
+        if (strlen(config.ssid) > 0) {
+            Serial.println("\n=== WiFi Connection ===");
+            Serial.printf("Connecting to WiFi: %s\n", config.ssid);
+            
+            // Show WiFi connecting popup
+            showConnectingPopup(config.name, config.ssid);
+            
+            WiFi.mode(WIFI_STA);
+            WiFi.begin(config.ssid, config.password);
+            
+            // Wait for connection with timeout (10 seconds)
+            int timeout = 20;
+            while (WiFi.status() != WL_CONNECTED && timeout > 0) {
+                delay(500);
+                Serial.print(".");
+                timeout--;
+                // Process LVGL to keep UI responsive
+                lv_timer_handler();
+            }
+            
+            if (WiFi.status() == WL_CONNECTED) {
+                Serial.println("\nWiFi connected!");
+                Serial.printf("IP Address: %s\n", WiFi.localIP().toString().c_str());
+                
+                // Update WiFi status in status bar
+                if (lbl_wifi_name) {
+                    lv_label_set_text(lbl_wifi_name, config.ssid);
+                }
+                if (lbl_wifi_symbol) {
+                    lv_obj_set_style_text_color(lbl_wifi_symbol, UITheme::STATE_IDLE, 0);
+                }
+                
+                // Hide WiFi popup and show machine connecting popup
+                hideConnectingPopup();
+                showConnectingPopup(config.name, nullptr);
+            } else {
+                Serial.println("\nWiFi connection failed!");
+                
+                // Build error message
+                char error_msg[256];
+                snprintf(error_msg, sizeof(error_msg), 
+                        "Could not connect to network:\n%s\n\nCheck WiFi settings and try again.",
+                        config.ssid);
+                
+                // Show error dialog
+                showConnectionErrorDialog("WiFi Connection Failed", error_msg);
+            }
+        } else {
+            Serial.println("UICommon: Warning - Wireless connection selected but no SSID configured");
+            // Show machine connecting popup for wired
+            showConnectingPopup(config.name, nullptr);
+        }
+    } else {
+        Serial.println("UICommon: Wired connection selected, skipping WiFi initialization");
+        // Show machine connecting popup for wired
+        showConnectingPopup(config.name, nullptr);
+    }
+    
     // Connect to FluidNC using selected machine
     Serial.printf("UICommon: Connecting to FluidNC at %s:%d\n", 
                  config.fluidnc_url, config.websocket_port);
     FluidNCClient::connect(config);
+    
+    // Start connection timeout monitoring (15 seconds)
+    connection_timeout_start = millis();
+    connection_timeout_active = true;
+    connection_error_shown = false;
     
     Serial.println("UICommon: Main UI created");
 }
@@ -275,20 +316,22 @@ void UICommon::createStatusBar() {
     }
 
     // Right side Line 2: WiFi network
+    // WiFi network name (right-aligned, positioned first)
+    String wifi_ssid = WiFi.isConnected() ? WiFi.SSID() : "Not Connected";
+    lbl_wifi_name = lv_label_create(status_bar);
+    lv_label_set_text(lbl_wifi_name, wifi_ssid.c_str());
+    lv_obj_set_style_text_font(lbl_wifi_name, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_color(lbl_wifi_name, UITheme::UI_INFO, 0);
+    lv_obj_set_style_text_align(lbl_wifi_name, LV_TEXT_ALIGN_RIGHT, 0);
+    lv_obj_set_width(lbl_wifi_name, 180);  // Set fixed width for right alignment
+    lv_obj_align(lbl_wifi_name, LV_ALIGN_BOTTOM_RIGHT, -30, -3);  // 30px from right for symbol
+    
     // WiFi symbol (will be colored based on connection status)
     lbl_wifi_symbol = lv_label_create(status_bar);
     lv_label_set_text(lbl_wifi_symbol, LV_SYMBOL_WIFI);
     lv_obj_set_style_text_font(lbl_wifi_symbol, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(lbl_wifi_symbol, WiFi.isConnected() ? UITheme::STATE_IDLE : UITheme::STATE_ALARM, 0);
     lv_obj_align(lbl_wifi_symbol, LV_ALIGN_BOTTOM_RIGHT, -5, -3);
-    
-    // WiFi network name
-    String wifi_ssid = WiFi.isConnected() ? WiFi.SSID() : "Not Connected";
-    lbl_wifi_name = lv_label_create(status_bar);
-    lv_label_set_text(lbl_wifi_name, wifi_ssid.c_str());
-    lv_obj_set_style_text_font(lbl_wifi_name, &lv_font_montserrat_18, 0);
-    lv_obj_set_style_text_color(lbl_wifi_name, UITheme::UI_INFO, 0);
-    lv_obj_align_to(lbl_wifi_name, lbl_wifi_symbol, LV_ALIGN_OUT_LEFT_MID, -5, 0);
 }
 
 void UICommon::updateModalStates(const char *text) {
@@ -456,5 +499,204 @@ void UICommon::hideMachineSelectConfirmDialog() {
     if (machine_select_dialog) {
         lv_obj_del(machine_select_dialog);
         machine_select_dialog = nullptr;
+    }
+}
+
+void UICommon::showConnectingPopup(const char *machine_name, const char *ssid) {
+    // Create modal background
+    connecting_popup = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(connecting_popup, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_style_bg_color(connecting_popup, lv_color_make(0, 0, 0), 0);
+    lv_obj_set_style_bg_opa(connecting_popup, LV_OPA_70, 0);
+    lv_obj_set_style_border_width(connecting_popup, 0, 0);
+    lv_obj_clear_flag(connecting_popup, LV_OBJ_FLAG_SCROLLABLE);
+    
+    // Dialog content box
+    lv_obj_t *content = lv_obj_create(connecting_popup);
+    lv_obj_set_size(content, 600, 200);
+    lv_obj_center(content);
+    lv_obj_set_style_bg_color(content, UITheme::BG_MEDIUM, 0);
+    lv_obj_set_style_border_color(content, UITheme::ACCENT_PRIMARY, 0);
+    lv_obj_set_style_border_width(content, 3, 0);
+    lv_obj_set_flex_flow(content, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(content, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_all(content, 25, 0);
+    lv_obj_set_style_pad_gap(content, 20, 0);
+    lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
+    
+    // Spinner
+    lv_obj_t *spinner = lv_spinner_create(content);
+    lv_obj_set_size(spinner, 50, 50);
+    lv_obj_set_style_arc_color(spinner, UITheme::ACCENT_PRIMARY, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_width(spinner, 6, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_width(spinner, 6, LV_PART_MAIN);
+    
+    // Connection text - use ssid if provided, otherwise machine name
+    char conn_text[128];
+    if (ssid && strlen(ssid) > 0) {
+        snprintf(conn_text, sizeof(conn_text), "Connecting to %s", ssid);
+    } else {
+        snprintf(conn_text, sizeof(conn_text), "Connecting to %s", machine_name);
+    }
+    
+    lv_obj_t *conn_label = lv_label_create(content);
+    lv_label_set_text(conn_label, conn_text);
+    lv_obj_set_style_text_font(conn_label, &lv_font_montserrat_22, 0);
+    lv_obj_set_style_text_color(conn_label, UITheme::TEXT_LIGHT, 0);
+    
+    Serial.printf("UICommon: %s\n", conn_text);
+}
+
+void UICommon::hideConnectingPopup() {
+    if (connecting_popup) {
+        lv_obj_del(connecting_popup);
+        connecting_popup = nullptr;
+        Serial.println("UICommon: Connecting popup hidden");
+    }
+}
+
+// Event handlers for connection error dialog
+static void on_connection_error_close(lv_event_t *e) {
+    Serial.println("UICommon: Connection error dialog closed");
+    UICommon::hideConnectionErrorDialog();
+}
+
+static void on_connection_error_restart(lv_event_t *e) {
+    Serial.println("UICommon: Restarting due to connection error...");
+    UICommon::hideConnectionErrorDialog();
+    
+    // Show restart message
+    lv_obj_t *restart_label = lv_label_create(lv_screen_active());
+    lv_label_set_text(restart_label, "Restarting...");
+    lv_obj_set_style_text_font(restart_label, &lv_font_montserrat_32, 0);
+    lv_obj_set_style_text_color(restart_label, UITheme::UI_INFO, 0);
+    lv_obj_center(restart_label);
+    
+    // Force display update
+    lv_timer_handler();
+    delay(500);
+    
+    // Restart the ESP32
+    ESP.restart();
+}
+
+void UICommon::showConnectionErrorDialog(const char *title, const char *message) {
+    // Hide connecting popup if it's showing
+    hideConnectingPopup();
+    
+    // Create modal background
+    connection_error_dialog = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(connection_error_dialog, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_style_bg_color(connection_error_dialog, lv_color_make(0, 0, 0), 0);
+    lv_obj_set_style_bg_opa(connection_error_dialog, LV_OPA_70, 0);
+    lv_obj_set_style_border_width(connection_error_dialog, 0, 0);
+    lv_obj_clear_flag(connection_error_dialog, LV_OBJ_FLAG_SCROLLABLE);
+    
+    // Dialog content box
+    lv_obj_t *content = lv_obj_create(connection_error_dialog);
+    lv_obj_set_size(content, 600, 280);
+    lv_obj_center(content);
+    lv_obj_set_style_bg_color(content, UITheme::BG_MEDIUM, 0);
+    lv_obj_set_style_border_color(content, UITheme::STATE_ALARM, 0);
+    lv_obj_set_style_border_width(content, 3, 0);
+    lv_obj_set_flex_flow(content, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(content, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_all(content, 20, 0);
+    lv_obj_set_style_pad_gap(content, 15, 0);
+    lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
+    
+    // Error icon and title
+    lv_obj_t *title_label = lv_label_create(content);
+    char title_text[128];
+    snprintf(title_text, sizeof(title_text), LV_SYMBOL_WARNING " %s", title);
+    lv_label_set_text(title_label, title_text);
+    lv_obj_set_style_text_font(title_label, &lv_font_montserrat_22, 0);
+    lv_obj_set_style_text_color(title_label, UITheme::STATE_ALARM, 0);
+    
+    // Error message
+    lv_obj_t *msg_label = lv_label_create(content);
+    lv_label_set_text(msg_label, message);
+    lv_obj_set_style_text_font(msg_label, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(msg_label, UITheme::TEXT_LIGHT, 0);
+    lv_label_set_long_mode(msg_label, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(msg_label, 550);
+    lv_obj_set_style_text_align(msg_label, LV_TEXT_ALIGN_CENTER, 0);
+    
+    // Button container
+    lv_obj_t *btn_container = lv_obj_create(content);
+    lv_obj_set_size(btn_container, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(btn_container, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(btn_container, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_bg_opa(btn_container, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(btn_container, 0, 0);
+    lv_obj_set_style_pad_all(btn_container, 0, 0);
+    lv_obj_clear_flag(btn_container, LV_OBJ_FLAG_SCROLLABLE);
+    
+    // Close button
+    lv_obj_t *close_btn = lv_btn_create(btn_container);
+    lv_obj_set_size(close_btn, 180, 50);
+    lv_obj_set_style_bg_color(close_btn, UITheme::BG_BUTTON, 0);
+    lv_obj_add_event_cb(close_btn, on_connection_error_close, LV_EVENT_CLICKED, nullptr);
+    
+    lv_obj_t *close_label = lv_label_create(close_btn);
+    lv_label_set_text(close_label, "Close");
+    lv_obj_set_style_text_font(close_label, &lv_font_montserrat_18, 0);
+    lv_obj_center(close_label);
+    
+    // Restart button
+    lv_obj_t *restart_btn = lv_btn_create(btn_container);
+    lv_obj_set_size(restart_btn, 180, 50);
+    lv_obj_set_style_bg_color(restart_btn, UITheme::ACCENT_PRIMARY, 0);
+    lv_obj_add_event_cb(restart_btn, on_connection_error_restart, LV_EVENT_CLICKED, nullptr);
+    
+    lv_obj_t *restart_label = lv_label_create(restart_btn);
+    lv_label_set_text(restart_label, LV_SYMBOL_POWER " Restart");
+    lv_obj_set_style_text_font(restart_label, &lv_font_montserrat_18, 0);
+    lv_obj_center(restart_label);
+    
+    Serial.printf("UICommon: Connection error dialog shown - %s: %s\n", title, message);
+}
+
+void UICommon::hideConnectionErrorDialog() {
+    if (connection_error_dialog) {
+        lv_obj_del(connection_error_dialog);
+        connection_error_dialog = nullptr;
+        Serial.println("UICommon: Connection error dialog hidden");
+    }
+}
+
+void UICommon::checkConnectionTimeout() {
+    // If not monitoring timeout, nothing to do
+    if (!connection_timeout_active) {
+        return;
+    }
+    
+    // If already connected, deactivate timeout and hide error
+    if (FluidNCClient::isConnected()) {
+        connection_timeout_active = false;
+        connection_error_shown = false;
+        hideConnectionErrorDialog();
+        return;
+    }
+    
+    // Check if timeout exceeded (15 seconds)
+    uint32_t elapsed = millis() - connection_timeout_start;
+    if (elapsed >= 15000 && !connection_error_shown) {
+        connection_error_shown = true;
+        
+        // Get machine config for error message
+        MachineConfig config;
+        if (MachineConfigManager::getSelectedMachine(config)) {
+            // Build error message
+            char error_msg[300];
+            snprintf(error_msg, sizeof(error_msg), 
+                    "Could not connect to machine:\n%s\n\nURL: %s:%d\n\nCheck that the machine is powered on\nand network connection is available.",
+                    config.name, config.fluidnc_url, config.websocket_port);
+            
+            // Show error dialog
+            showConnectionErrorDialog("Machine Connection Failed", error_msg);
+            
+            Serial.println("UICommon: Machine connection timeout - showing error dialog");
+        }
     }
 }

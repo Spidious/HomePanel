@@ -31,11 +31,6 @@ void UIMachineSelect::show(lv_display_t *disp) {
     display = disp;
     Serial.println("UIMachineSelect: Creating machine selection screen");
     
-    // Initialize default machines if none configured
-    if (!MachineConfigManager::hasConfiguredMachines()) {
-        MachineConfigManager::initializeDefaults();
-    }
-    
     // Load machines from Preferences
     MachineConfigManager::loadMachines(machines);
     
@@ -83,6 +78,17 @@ void UIMachineSelect::show(lv_display_t *disp) {
     
     // Load screen
     lv_scr_load(screen);
+    
+    // Automatically show Add Machine dialog if no machines configured
+    if (!MachineConfigManager::hasConfiguredMachines()) {
+        Serial.println("UIMachineSelect: No machines configured, showing Add Machine dialog");
+        // Use a timer to show dialog after screen is fully loaded
+        lv_timer_t *timer = lv_timer_create([](lv_timer_t *t) {
+            onAddMachine(nullptr);
+            lv_timer_del(t);
+        }, 100, nullptr);
+        lv_timer_set_repeat_count(timer, 1);
+    }
     
     Serial.println("UIMachineSelect: Machine selection screen displayed");
 }
