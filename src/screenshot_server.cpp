@@ -3,7 +3,6 @@
 #include "display_driver.h"
 #include <WiFi.h>
 #include <WebServer.h>
-#include <Preferences.h>
 #include <lvgl.h>
 #include <esp_heap_caps.h>
 
@@ -11,7 +10,6 @@
 
 static WebServer server(80);
 static bool wifi_connected = false;
-static Preferences preferences;
 static DisplayDriver* display_driver_instance = nullptr;
 static uint16_t* screenshot_buffer = nullptr;
 
@@ -220,52 +218,27 @@ void ScreenshotServer::init(DisplayDriver* display_driver) {
     // Store the display driver instance
     display_driver_instance = display_driver;
     
-    Serial.println("\n=== WiFi Screenshot Server ===");
+    Serial.println("\n=== Screenshot Server ===");
     
-    // Read WiFi credentials from Preferences
-    preferences.begin(PREFS_NAMESPACE, true);  // Read-only mode
-    String ssid = preferences.getString("wifi_ssid", "");
-    String password = preferences.getString("wifi_pass", "");
-    preferences.end();
-    
-    if (ssid.isEmpty()) {
-        Serial.println("No WiFi credentials stored. Please configure in Settings tab.");
-        Serial.println("Screenshot server disabled.");
+    // Check if WiFi is already connected (should be connected via machine config)
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("WiFi not connected. Screenshot server disabled.");
+        wifi_connected = false;
         return;
     }
     
-    Serial.print("Connecting to WiFi: ");
-    Serial.println(ssid);
+    wifi_connected = true;
+    Serial.println("WiFi already connected!");
+    Serial.print("IP Address: ");
+    Serial.println(WiFi.localIP());
+    Serial.println("Access the screenshot server at: http://" + WiFi.localIP().toString());
     
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(ssid.c_str(), password.c_str());
+    // Setup web server routes
+    server.on("/", handleRoot);
+    server.on("/screenshot.bmp", handleScreenshot);
     
-    // Wait for connection with timeout
-    int timeout = 20;  // 10 seconds
-    while (WiFi.status() != WL_CONNECTED && timeout > 0) {
-        delay(500);
-        Serial.print(".");
-        timeout--;
-    }
-    
-    if (WiFi.status() == WL_CONNECTED) {
-        wifi_connected = true;
-        Serial.println("\nWiFi connected!");
-        Serial.print("IP Address: ");
-        Serial.println(WiFi.localIP());
-        Serial.println("Access the screenshot server at: http://" + WiFi.localIP().toString());
-        
-        // Setup web server routes
-        server.on("/", handleRoot);
-        server.on("/screenshot.bmp", handleScreenshot);
-        
-        server.begin();
-        Serial.println("Web server started");
-    } else {
-        wifi_connected = false;
-        Serial.println("\nWiFi connection failed!");
-        Serial.println("Screenshot server disabled");
-    }
+    server.begin();
+    Serial.println("Web server started");
 }
 
 void ScreenshotServer::handleClient() {

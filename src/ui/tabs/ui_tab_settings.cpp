@@ -1,6 +1,5 @@
 #include "ui/tabs/ui_tab_settings.h"
 #include "ui/tabs/settings/ui_tab_settings_general.h"
-#include "ui/tabs/settings/ui_tab_settings_connection.h"
 #include "ui/tabs/settings/ui_tab_settings_fluidnc.h"
 #include "ui/ui_theme.h"
 #include "config.h"
@@ -57,22 +56,18 @@ void UITabSettings::create(lv_obj_t *tab) {
 
     // Add sub-tabs
     lv_obj_t *general_tab = lv_tabview_add_tab(sub_tabview, "General");
-    lv_obj_t *connection_tab = lv_tabview_add_tab(sub_tabview, "Connection");
     lv_obj_t *fluidnc_tab = lv_tabview_add_tab(sub_tabview, "FluidNC");
     
     // Disable scrolling on sub-tabs
     lv_obj_clear_flag(general_tab, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_clear_flag(connection_tab, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_clear_flag(fluidnc_tab, LV_OBJ_FLAG_SCROLLABLE);
     
     // Set background for sub-tabs
     lv_obj_set_style_bg_color(general_tab, UITheme::BG_MEDIUM, 0);
-    lv_obj_set_style_bg_color(connection_tab, UITheme::BG_MEDIUM, 0);
     lv_obj_set_style_bg_color(fluidnc_tab, UITheme::BG_MEDIUM, 0);
     
     // Add 5px padding to all sub-tabs
     lv_obj_set_style_pad_all(general_tab, 5, 0);
-    lv_obj_set_style_pad_all(connection_tab, 5, 0);
     lv_obj_set_style_pad_all(fluidnc_tab, 5, 0);
 
     // Get the actual tab buttons and style them directly with the teal accent color
@@ -98,16 +93,11 @@ void UITabSettings::create(lv_obj_t *tab) {
     
     // Delegate creation to subtab modules
     createGeneralTab(general_tab);
-    createConnectionTab(connection_tab);
     createFluidNCTab(fluidnc_tab);
 }
 
 void UITabSettings::createGeneralTab(lv_obj_t *tab) {
     UITabSettingsGeneral::create(tab);
-}
-
-void UITabSettings::createConnectionTab(lv_obj_t *tab) {
-    UITabSettingsConnection::create(tab);
 }
 
 void UITabSettings::createFluidNCTab(lv_obj_t *tab) {

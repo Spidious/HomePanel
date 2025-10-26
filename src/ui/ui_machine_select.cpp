@@ -441,7 +441,7 @@ void UIMachineSelect::showConfigDialog(int index) {
     dd_connection_type = lv_dropdown_create(dialog_content);
     lv_obj_set_width(dd_connection_type, 200);
     lv_obj_set_height(dd_connection_type, 40);
-    lv_dropdown_set_options(dd_connection_type, "Wireless\nWired");
+    lv_dropdown_set_options(dd_connection_type, "Wireless");  // Wired option hidden for now, reserved for future
     if (!is_new) lv_dropdown_set_selected(dd_connection_type, machines[index].connection_type);
     lv_obj_add_event_cb(dd_connection_type, onConnectionTypeChanged, LV_EVENT_VALUE_CHANGED, nullptr);
     

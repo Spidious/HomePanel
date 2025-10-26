@@ -96,6 +96,44 @@ void UICommon::init(lv_display_t *disp) {
 void UICommon::createMainUI() {
     Serial.println("UICommon: Creating main UI");
     
+    // Get selected machine configuration
+    MachineConfig config;
+    if (!MachineConfigManager::getSelectedMachine(config)) {
+        Serial.println("UICommon: ERROR - No machine selected!");
+        return;
+    }
+    
+    // Initialize WiFi connection using machine-specific credentials
+    if (config.connection_type == CONN_WIRELESS) {
+        if (strlen(config.ssid) > 0) {
+            Serial.println("\n=== WiFi Connection ===");
+            Serial.printf("Connecting to WiFi: %s\n", config.ssid);
+            
+            WiFi.mode(WIFI_STA);
+            WiFi.begin(config.ssid, config.password);
+            
+            // Wait for connection with timeout (10 seconds)
+            int timeout = 20;
+            while (WiFi.status() != WL_CONNECTED && timeout > 0) {
+                delay(500);
+                Serial.print(".");
+                timeout--;
+            }
+            
+            if (WiFi.status() == WL_CONNECTED) {
+                Serial.println("\nWiFi connected!");
+                Serial.printf("IP Address: %s\n", WiFi.localIP().toString().c_str());
+            } else {
+                Serial.println("\nWiFi connection failed!");
+                Serial.println("Continuing without WiFi...");
+            }
+        } else {
+            Serial.println("UICommon: Warning - Wireless connection selected but no SSID configured");
+        }
+    } else {
+        Serial.println("UICommon: Wired connection selected, skipping WiFi initialization");
+    }
+    
     // Create main screen
     lv_obj_t *main_screen = lv_obj_create(nullptr);
     lv_obj_set_style_bg_color(main_screen, UITheme::BG_DARKER, LV_PART_MAIN);
@@ -110,14 +148,9 @@ void UICommon::createMainUI() {
     UITabs::createTabs();
     
     // Connect to FluidNC using selected machine
-    MachineConfig config;
-    if (MachineConfigManager::getSelectedMachine(config)) {
-        Serial.printf("UICommon: Connecting to FluidNC at %s:%d\n", 
-                     config.fluidnc_url, config.websocket_port);
-        FluidNCClient::connect(config);
-    } else {
-        Serial.println("UICommon: Warning - No machine selected, cannot connect to FluidNC");
-    }
+    Serial.printf("UICommon: Connecting to FluidNC at %s:%d\n", 
+                 config.fluidnc_url, config.websocket_port);
+    FluidNCClient::connect(config);
     
     Serial.println("UICommon: Main UI created");
 }
