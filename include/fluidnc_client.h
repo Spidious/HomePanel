@@ -36,6 +36,7 @@ struct FluidNCStatus {
     // Feed and spindle
     float feed_rate;        // Current feed rate (mm/min)
     float feed_override;    // Feed override percentage (0-200)
+    float rapid_override;   // Rapid override percentage (0-200)
     float spindle_speed;    // Current spindle speed (RPM)
     float spindle_override; // Spindle override percentage (0-200)
     
@@ -69,7 +70,7 @@ struct FluidNCStatus {
                      mpos_x(0), mpos_y(0), mpos_z(0),
                      wpos_x(0), wpos_y(0), wpos_z(0),
                      wco_x(0), wco_y(0), wco_z(0),
-                     feed_rate(0), feed_override(100),
+                     feed_rate(0), feed_override(100), rapid_override(100),
                      spindle_speed(0), spindle_override(100),
                      is_sd_printing(false), sd_percent(0), sd_start_time_ms(0), sd_elapsed_ms(0),
                      is_connected(false), last_update_ms(0) {

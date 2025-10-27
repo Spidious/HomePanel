@@ -1,115 +1,338 @@
 #include "ui/tabs/control/ui_tab_control_override.h"
 #include "ui/ui_theme.h"
 #include "config.h"
+#include "fluidnc_client.h"
 
-// Event handler for feed rate override slider
-static void feed_override_event_handler(lv_event_t* e) {
-    lv_obj_t* slider = (lv_obj_t*)lv_event_get_target(e);
-    lv_obj_t* label = (lv_obj_t*)lv_event_get_user_data(e);
-    
-    int32_t value = lv_slider_get_value(slider);
-    lv_label_set_text_fmt(label, "%d%%", (int)value);
-    
-    // TODO: Send feed rate override command to FluidNC
-    // Format: FRO:<percentage> or similar G-code command
+// Static label pointers
+lv_obj_t* UITabControlOverride::lbl_feed_value = nullptr;
+lv_obj_t* UITabControlOverride::lbl_rapid_value = nullptr;
+lv_obj_t* UITabControlOverride::lbl_spindle_value = nullptr;
+
+// Feed override event handlers
+static void feed_coarse_plus_handler(lv_event_t* e) {
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        char cmd[2] = {0x91, 0};  // FeedOvrCoarsePlus (+10%)
+        FluidNCClient::sendCommand(cmd);
+        Serial.println("Feed Override: +10%");
+    }
 }
 
-// Event handler for spindle speed override slider
-static void spindle_override_event_handler(lv_event_t* e) {
-    lv_obj_t* slider = (lv_obj_t*)lv_event_get_target(e);
-    lv_obj_t* label = (lv_obj_t*)lv_event_get_user_data(e);
-    
-    int32_t value = lv_slider_get_value(slider);
-    lv_label_set_text_fmt(label, "%d%%", (int)value);
-    
-    // TODO: Send spindle speed override command to FluidNC
-    // Format: SRO:<percentage> or similar G-code command
+static void feed_coarse_minus_handler(lv_event_t* e) {
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        char cmd[2] = {0x92, 0};  // FeedOvrCoarseMinus (-10%)
+        FluidNCClient::sendCommand(cmd);
+        Serial.println("Feed Override: -10%");
+    }
 }
 
-// Event handler for reset button
-static void reset_overrides_event_handler(lv_event_t* e) {
-    lv_event_code_t code = lv_event_get_code(e);
-    if (code == LV_EVENT_CLICKED) {
-        // Get the container and find all sliders to reset them
-        lv_obj_t* btn = (lv_obj_t*)lv_event_get_target(e);
-        lv_obj_t* parent = lv_obj_get_parent(btn);
-        
-        // TODO: Reset all overrides to 100%
-        // Send reset commands to FluidNC
-        Serial.println("Reset all overrides to 100%");
+static void feed_fine_plus_handler(lv_event_t* e) {
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        char cmd[2] = {0x93, 0};  // FeedOvrFinePlus (+1%)
+        FluidNCClient::sendCommand(cmd);
+        Serial.println("Feed Override: +1%");
+    }
+}
+
+static void feed_fine_minus_handler(lv_event_t* e) {
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        char cmd[2] = {0x94, 0};  // FeedOvrFineMinus (-1%)
+        FluidNCClient::sendCommand(cmd);
+        Serial.println("Feed Override: -1%");
+    }
+}
+
+static void feed_reset_handler(lv_event_t* e) {
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        char cmd[2] = {0x90, 0};  // FeedOvrReset (100%)
+        FluidNCClient::sendCommand(cmd);
+        Serial.println("Feed Override: Reset to 100%");
+    }
+}
+
+// Rapid override event handlers
+static void rapid_100_handler(lv_event_t* e) {
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        char cmd[2] = {0x95, 0};  // RapidOvrReset (100%)
+        FluidNCClient::sendCommand(cmd);
+        Serial.println("Rapid Override: 100%");
+    }
+}
+
+static void rapid_50_handler(lv_event_t* e) {
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        char cmd[2] = {0x96, 0};  // RapidOvrMedium (50%)
+        FluidNCClient::sendCommand(cmd);
+        Serial.println("Rapid Override: 50%");
+    }
+}
+
+static void rapid_25_handler(lv_event_t* e) {
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        char cmd[2] = {0x97, 0};  // RapidOvrLow (25%)
+        FluidNCClient::sendCommand(cmd);
+        Serial.println("Rapid Override: 25%");
+    }
+}
+
+// Spindle override event handlers
+static void spindle_coarse_plus_handler(lv_event_t* e) {
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        char cmd[2] = {0x9A, 0};  // SpindleOvrCoarsePlus (+10%)
+        FluidNCClient::sendCommand(cmd);
+        Serial.println("Spindle Override: +10%");
+    }
+}
+
+static void spindle_coarse_minus_handler(lv_event_t* e) {
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        char cmd[2] = {0x9B, 0};  // SpindleOvrCoarseMinus (-10%)
+        FluidNCClient::sendCommand(cmd);
+        Serial.println("Spindle Override: -10%");
+    }
+}
+
+static void spindle_fine_plus_handler(lv_event_t* e) {
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        char cmd[2] = {0x9C, 0};  // SpindleOvrFinePlus (+1%)
+        FluidNCClient::sendCommand(cmd);
+        Serial.println("Spindle Override: +1%");
+    }
+}
+
+static void spindle_fine_minus_handler(lv_event_t* e) {
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        char cmd[2] = {0x9D, 0};  // SpindleOvrFineMinus (-1%)
+        FluidNCClient::sendCommand(cmd);
+        Serial.println("Spindle Override: -1%");
+    }
+}
+
+static void spindle_reset_handler(lv_event_t* e) {
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        char cmd[2] = {0x99, 0};  // SpindleOvrReset (100%)
+        FluidNCClient::sendCommand(cmd);
+        Serial.println("Spindle Override: Reset to 100%");
     }
 }
 
 lv_obj_t* UITabControlOverride::create(lv_obj_t* parent) {
-    // Create main container - disable scrolling
+    // Create main container with 3 columns
     lv_obj_t* cont = lv_obj_create(parent);
     lv_obj_set_size(cont, lv_pct(100), lv_pct(100));
-    lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(cont, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_pad_all(cont, 20, 0);
-    lv_obj_set_style_pad_row(cont, 15, 0);
+    lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(cont, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_all(cont, 5, 0);
+    lv_obj_set_style_pad_column(cont, 8, 0);
+    lv_obj_set_style_border_width(cont, 0, 0);
+    lv_obj_set_style_bg_opa(cont, LV_OPA_TRANSP, 0);
     lv_obj_clear_flag(cont, LV_OBJ_FLAG_SCROLLABLE);
     
-    // --- Feed Rate Override ---
-    lv_obj_t* feed_label = lv_label_create(cont);
-    lv_label_set_text(feed_label, "Feed Rate Override");
-    lv_obj_set_style_text_font(feed_label, &lv_font_montserrat_20, 0);
+    // === COLUMN 1: FEED OVERRIDE ===
+    lv_obj_t* feed_col = lv_obj_create(cont);
+    lv_obj_set_size(feed_col, 255, lv_pct(100));
+    lv_obj_set_flex_flow(feed_col, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(feed_col, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_all(feed_col, 5, 0);
+    lv_obj_set_style_pad_row(feed_col, 8, 0);
+    lv_obj_set_style_border_width(feed_col, 0, 0);
+    lv_obj_set_style_bg_opa(feed_col, LV_OPA_TRANSP, 0);
     
-    lv_obj_t* feed_value_label = lv_label_create(cont);
-    lv_label_set_text(feed_value_label, "100%");
-    lv_obj_set_style_text_font(feed_value_label, &lv_font_montserrat_28, 0);
-    lv_obj_set_style_text_color(feed_value_label, UITheme::ACCENT_SECONDARY, 0);
+    lv_obj_t* feed_header = lv_label_create(feed_col);
+    lv_label_set_text(feed_header, "FEED");
+    lv_obj_set_style_text_font(feed_header, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_color(feed_header, UITheme::TEXT_DISABLED, 0);
     
-    lv_obj_t* feed_slider = lv_slider_create(cont);
-    lv_obj_set_width(feed_slider, lv_pct(85));
-    lv_obj_set_height(feed_slider, 20);
-    lv_slider_set_range(feed_slider, 10, 200);  // 10% to 200%
-    lv_slider_set_value(feed_slider, 100, LV_ANIM_OFF);
-    lv_obj_set_style_bg_color(feed_slider, UITheme::ACCENT_SECONDARY, LV_PART_INDICATOR);
-    lv_obj_set_style_bg_color(feed_slider, UITheme::ACCENT_SECONDARY, LV_PART_KNOB);
-    lv_obj_add_event_cb(feed_slider, feed_override_event_handler, LV_EVENT_VALUE_CHANGED, feed_value_label);
+    lbl_feed_value = lv_label_create(feed_col);
+    lv_label_set_text(lbl_feed_value, "100%");
+    lv_obj_set_style_text_font(lbl_feed_value, &lv_font_montserrat_32, 0);
+    lv_obj_set_style_text_color(lbl_feed_value, UITheme::ACCENT_SECONDARY, 0);
     
-    // --- Spacer ---
-    lv_obj_t* spacer1 = lv_obj_create(cont);
-    lv_obj_set_size(spacer1, 1, 30);
-    lv_obj_set_style_bg_opa(spacer1, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(spacer1, 0, 0);
+    // Reset button (distinctive color)
+    lv_obj_t* feed_reset_btn = lv_button_create(feed_col);
+    lv_obj_set_size(feed_reset_btn, 150, 45);
+    lv_obj_set_style_bg_color(feed_reset_btn, UITheme::BTN_CONNECT, 0);
+    lv_obj_add_event_cb(feed_reset_btn, feed_reset_handler, LV_EVENT_CLICKED, NULL);
+    lv_obj_t* feed_reset_lbl = lv_label_create(feed_reset_btn);
+    lv_label_set_text(feed_reset_lbl, "100%");
+    lv_obj_set_style_text_font(feed_reset_lbl, &lv_font_montserrat_20, 0);
+    lv_obj_center(feed_reset_lbl);
     
-    // --- Spindle Speed Override ---
-    lv_obj_t* spindle_label = lv_label_create(cont);
-    lv_label_set_text(spindle_label, "Spindle Speed Override");
-    lv_obj_set_style_text_font(spindle_label, &lv_font_montserrat_20, 0);
+    // +10% button
+    lv_obj_t* feed_plus10_btn = lv_button_create(feed_col);
+    lv_obj_set_size(feed_plus10_btn, 150, 45);
+    lv_obj_set_style_bg_color(feed_plus10_btn, UITheme::TEXT_DARK, 0);
+    lv_obj_add_event_cb(feed_plus10_btn, feed_coarse_plus_handler, LV_EVENT_CLICKED, NULL);
+    lv_obj_t* feed_plus10_lbl = lv_label_create(feed_plus10_btn);
+    lv_label_set_text(feed_plus10_lbl, "+10%");
+    lv_obj_set_style_text_font(feed_plus10_lbl, &lv_font_montserrat_20, 0);
+    lv_obj_center(feed_plus10_lbl);
     
-    lv_obj_t* spindle_value_label = lv_label_create(cont);
-    lv_label_set_text(spindle_value_label, "100%");
-    lv_obj_set_style_text_font(spindle_value_label, &lv_font_montserrat_28, 0);
-    lv_obj_set_style_text_color(spindle_value_label, UITheme::ACCENT_SECONDARY, 0);
+    // +1% button
+    lv_obj_t* feed_plus1_btn = lv_button_create(feed_col);
+    lv_obj_set_size(feed_plus1_btn, 150, 45);
+    lv_obj_set_style_bg_color(feed_plus1_btn, UITheme::TEXT_DARK, 0);
+    lv_obj_add_event_cb(feed_plus1_btn, feed_fine_plus_handler, LV_EVENT_CLICKED, NULL);
+    lv_obj_t* feed_plus1_lbl = lv_label_create(feed_plus1_btn);
+    lv_label_set_text(feed_plus1_lbl, "+1%");
+    lv_obj_set_style_text_font(feed_plus1_lbl, &lv_font_montserrat_20, 0);
+    lv_obj_center(feed_plus1_lbl);
     
-    lv_obj_t* spindle_slider = lv_slider_create(cont);
-    lv_obj_set_width(spindle_slider, lv_pct(85));
-    lv_obj_set_height(spindle_slider, 20);
-    lv_slider_set_range(spindle_slider, 10, 200);  // 10% to 200%
-    lv_slider_set_value(spindle_slider, 100, LV_ANIM_OFF);
-    lv_obj_set_style_bg_color(spindle_slider, UITheme::ACCENT_SECONDARY, LV_PART_INDICATOR);
-    lv_obj_set_style_bg_color(spindle_slider, UITheme::ACCENT_SECONDARY, LV_PART_KNOB);
-    lv_obj_add_event_cb(spindle_slider, spindle_override_event_handler, LV_EVENT_VALUE_CHANGED, spindle_value_label);
+    // -1% button
+    lv_obj_t* feed_minus1_btn = lv_button_create(feed_col);
+    lv_obj_set_size(feed_minus1_btn, 150, 45);
+    lv_obj_set_style_bg_color(feed_minus1_btn, UITheme::TEXT_DARK, 0);
+    lv_obj_add_event_cb(feed_minus1_btn, feed_fine_minus_handler, LV_EVENT_CLICKED, NULL);
+    lv_obj_t* feed_minus1_lbl = lv_label_create(feed_minus1_btn);
+    lv_label_set_text(feed_minus1_lbl, "-1%");
+    lv_obj_set_style_text_font(feed_minus1_lbl, &lv_font_montserrat_20, 0);
+    lv_obj_center(feed_minus1_lbl);
     
-    // --- Spacer ---
-    lv_obj_t* spacer2 = lv_obj_create(cont);
-    lv_obj_set_size(spacer2, 1, 30);
-    lv_obj_set_style_bg_opa(spacer2, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(spacer2, 0, 0);
+    // -10% button
+    lv_obj_t* feed_minus10_btn = lv_button_create(feed_col);
+    lv_obj_set_size(feed_minus10_btn, 150, 45);
+    lv_obj_set_style_bg_color(feed_minus10_btn, UITheme::TEXT_DARK, 0);
+    lv_obj_add_event_cb(feed_minus10_btn, feed_coarse_minus_handler, LV_EVENT_CLICKED, NULL);
+    lv_obj_t* feed_minus10_lbl = lv_label_create(feed_minus10_btn);
+    lv_label_set_text(feed_minus10_lbl, "-10%");
+    lv_obj_set_style_text_font(feed_minus10_lbl, &lv_font_montserrat_20, 0);
+    lv_obj_center(feed_minus10_lbl);
     
-    // --- Reset Button ---
-    lv_obj_t* reset_btn = lv_button_create(cont);
-    lv_obj_set_size(reset_btn, 220, 55);
-    lv_obj_set_style_bg_color(reset_btn, UITheme::TEXT_DARK, 0);
-    lv_obj_add_event_cb(reset_btn, reset_overrides_event_handler, LV_EVENT_CLICKED, NULL);
+    // === COLUMN 2: RAPID OVERRIDE ===
+    lv_obj_t* rapid_col = lv_obj_create(cont);
+    lv_obj_set_size(rapid_col, 255, lv_pct(100));
+    lv_obj_set_flex_flow(rapid_col, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(rapid_col, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_all(rapid_col, 5, 0);
+    lv_obj_set_style_pad_row(rapid_col, 8, 0);
+    lv_obj_set_style_border_width(rapid_col, 0, 0);
+    lv_obj_set_style_bg_opa(rapid_col, LV_OPA_TRANSP, 0);
     
-    lv_obj_t* reset_label = lv_label_create(reset_btn);
-    lv_label_set_text(reset_label, "Reset to 100%");
-    lv_obj_set_style_text_font(reset_label, &lv_font_montserrat_18, 0);
-    lv_obj_center(reset_label);
+    lv_obj_t* rapid_header = lv_label_create(rapid_col);
+    lv_label_set_text(rapid_header, "RAPID");
+    lv_obj_set_style_text_font(rapid_header, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_color(rapid_header, UITheme::TEXT_DISABLED, 0);
+    
+    lbl_rapid_value = lv_label_create(rapid_col);
+    lv_label_set_text(lbl_rapid_value, "100%");
+    lv_obj_set_style_text_font(lbl_rapid_value, &lv_font_montserrat_32, 0);
+    lv_obj_set_style_text_color(lbl_rapid_value, UITheme::ACCENT_SECONDARY, 0);
+    
+    // 100% button
+    lv_obj_t* rapid_100_btn = lv_button_create(rapid_col);
+    lv_obj_set_size(rapid_100_btn, 150, 45);
+    lv_obj_set_style_bg_color(rapid_100_btn, UITheme::BTN_CONNECT, 0);
+    lv_obj_add_event_cb(rapid_100_btn, rapid_100_handler, LV_EVENT_CLICKED, NULL);
+    lv_obj_t* rapid_100_lbl = lv_label_create(rapid_100_btn);
+    lv_label_set_text(rapid_100_lbl, "100%");
+    lv_obj_set_style_text_font(rapid_100_lbl, &lv_font_montserrat_20, 0);
+    lv_obj_center(rapid_100_lbl);
+    
+    // 50% button
+    lv_obj_t* rapid_50_btn = lv_button_create(rapid_col);
+    lv_obj_set_size(rapid_50_btn, 150, 45);
+    lv_obj_set_style_bg_color(rapid_50_btn, UITheme::TEXT_DARK, 0);
+    lv_obj_add_event_cb(rapid_50_btn, rapid_50_handler, LV_EVENT_CLICKED, NULL);
+    lv_obj_t* rapid_50_lbl = lv_label_create(rapid_50_btn);
+    lv_label_set_text(rapid_50_lbl, "50%");
+    lv_obj_set_style_text_font(rapid_50_lbl, &lv_font_montserrat_20, 0);
+    lv_obj_center(rapid_50_lbl);
+    
+    // 25% button
+    lv_obj_t* rapid_25_btn = lv_button_create(rapid_col);
+    lv_obj_set_size(rapid_25_btn, 150, 45);
+    lv_obj_set_style_bg_color(rapid_25_btn, UITheme::TEXT_DARK, 0);
+    lv_obj_add_event_cb(rapid_25_btn, rapid_25_handler, LV_EVENT_CLICKED, NULL);
+    lv_obj_t* rapid_25_lbl = lv_label_create(rapid_25_btn);
+    lv_label_set_text(rapid_25_lbl, "25%");
+    lv_obj_set_style_text_font(rapid_25_lbl, &lv_font_montserrat_20, 0);
+    lv_obj_center(rapid_25_lbl);
+    
+    // === COLUMN 3: SPINDLE OVERRIDE ===
+    lv_obj_t* spindle_col = lv_obj_create(cont);
+    lv_obj_set_size(spindle_col, 255, lv_pct(100));
+    lv_obj_set_flex_flow(spindle_col, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(spindle_col, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_all(spindle_col, 5, 0);
+    lv_obj_set_style_pad_row(spindle_col, 8, 0);
+    lv_obj_set_style_border_width(spindle_col, 0, 0);
+    lv_obj_set_style_bg_opa(spindle_col, LV_OPA_TRANSP, 0);
+    
+    lv_obj_t* spindle_header = lv_label_create(spindle_col);
+    lv_label_set_text(spindle_header, "SPINDLE");
+    lv_obj_set_style_text_font(spindle_header, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_color(spindle_header, UITheme::TEXT_DISABLED, 0);
+    
+    lbl_spindle_value = lv_label_create(spindle_col);
+    lv_label_set_text(lbl_spindle_value, "100%");
+    lv_obj_set_style_text_font(lbl_spindle_value, &lv_font_montserrat_32, 0);
+    lv_obj_set_style_text_color(lbl_spindle_value, UITheme::ACCENT_SECONDARY, 0);
+    
+    // Reset button (distinctive color)
+    lv_obj_t* spindle_reset_btn = lv_button_create(spindle_col);
+    lv_obj_set_size(spindle_reset_btn, 150, 45);
+    lv_obj_set_style_bg_color(spindle_reset_btn, UITheme::BTN_CONNECT, 0);
+    lv_obj_add_event_cb(spindle_reset_btn, spindle_reset_handler, LV_EVENT_CLICKED, NULL);
+    lv_obj_t* spindle_reset_lbl = lv_label_create(spindle_reset_btn);
+    lv_label_set_text(spindle_reset_lbl, "100%");
+    lv_obj_set_style_text_font(spindle_reset_lbl, &lv_font_montserrat_20, 0);
+    lv_obj_center(spindle_reset_lbl);
+    
+    // +10% button
+    lv_obj_t* spindle_plus10_btn = lv_button_create(spindle_col);
+    lv_obj_set_size(spindle_plus10_btn, 150, 45);
+    lv_obj_set_style_bg_color(spindle_plus10_btn, UITheme::TEXT_DARK, 0);
+    lv_obj_add_event_cb(spindle_plus10_btn, spindle_coarse_plus_handler, LV_EVENT_CLICKED, NULL);
+    lv_obj_t* spindle_plus10_lbl = lv_label_create(spindle_plus10_btn);
+    lv_label_set_text(spindle_plus10_lbl, "+10%");
+    lv_obj_set_style_text_font(spindle_plus10_lbl, &lv_font_montserrat_20, 0);
+    lv_obj_center(spindle_plus10_lbl);
+    
+    // +1% button
+    lv_obj_t* spindle_plus1_btn = lv_button_create(spindle_col);
+    lv_obj_set_size(spindle_plus1_btn, 150, 45);
+    lv_obj_set_style_bg_color(spindle_plus1_btn, UITheme::TEXT_DARK, 0);
+    lv_obj_add_event_cb(spindle_plus1_btn, spindle_fine_plus_handler, LV_EVENT_CLICKED, NULL);
+    lv_obj_t* spindle_plus1_lbl = lv_label_create(spindle_plus1_btn);
+    lv_label_set_text(spindle_plus1_lbl, "+1%");
+    lv_obj_set_style_text_font(spindle_plus1_lbl, &lv_font_montserrat_20, 0);
+    lv_obj_center(spindle_plus1_lbl);
+    
+    // -1% button
+    lv_obj_t* spindle_minus1_btn = lv_button_create(spindle_col);
+    lv_obj_set_size(spindle_minus1_btn, 150, 45);
+    lv_obj_set_style_bg_color(spindle_minus1_btn, UITheme::TEXT_DARK, 0);
+    lv_obj_add_event_cb(spindle_minus1_btn, spindle_fine_minus_handler, LV_EVENT_CLICKED, NULL);
+    lv_obj_t* spindle_minus1_lbl = lv_label_create(spindle_minus1_btn);
+    lv_label_set_text(spindle_minus1_lbl, "-1%");
+    lv_obj_set_style_text_font(spindle_minus1_lbl, &lv_font_montserrat_20, 0);
+    lv_obj_center(spindle_minus1_lbl);
+    
+    // -10% button
+    lv_obj_t* spindle_minus10_btn = lv_button_create(spindle_col);
+    lv_obj_set_size(spindle_minus10_btn, 150, 45);
+    lv_obj_set_style_bg_color(spindle_minus10_btn, UITheme::TEXT_DARK, 0);
+    lv_obj_add_event_cb(spindle_minus10_btn, spindle_coarse_minus_handler, LV_EVENT_CLICKED, NULL);
+    lv_obj_t* spindle_minus10_lbl = lv_label_create(spindle_minus10_btn);
+    lv_label_set_text(spindle_minus10_lbl, "-10%");
+    lv_obj_set_style_text_font(spindle_minus10_lbl, &lv_font_montserrat_20, 0);
+    lv_obj_center(spindle_minus10_lbl);
     
     return cont;
+}
+
+void UITabControlOverride::updateValues(float feed_ovr, float rapid_ovr, float spindle_ovr) {
+    char buf[16];
+    
+    if (lbl_feed_value) {
+        snprintf(buf, sizeof(buf), "%.0f%%", feed_ovr);
+        lv_label_set_text(lbl_feed_value, buf);
+    }
+    if (lbl_rapid_value) {
+        snprintf(buf, sizeof(buf), "%.0f%%", rapid_ovr);
+        lv_label_set_text(lbl_rapid_value, buf);
+    }
+    if (lbl_spindle_value) {
+        snprintf(buf, sizeof(buf), "%.0f%%", spindle_ovr);
+        lv_label_set_text(lbl_spindle_value, buf);
+    }
 }

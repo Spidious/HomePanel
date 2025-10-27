@@ -260,10 +260,9 @@ void FluidNCClient::parseStatusReport(const char* message) {
     // Parse overrides (Ov:feed,rapid,spindle)
     const char* ov = strstr(message, "Ov:");
     if (ov) {
-        float rapid_override;
-        sscanf(ov + 3, "%f,%f,%f", &currentStatus.feed_override, &rapid_override, &currentStatus.spindle_override);
-        Serial.printf("[FluidNC] Parsed Ov: feed=%.0f%%, spindle=%.0f%%\n", 
-                      currentStatus.feed_override, currentStatus.spindle_override);
+        sscanf(ov + 3, "%f,%f,%f", &currentStatus.feed_override, &currentStatus.rapid_override, &currentStatus.spindle_override);
+        Serial.printf("[FluidNC] Parsed Ov: feed=%.0f%%, rapid=%.0f%%, spindle=%.0f%%\n", 
+                      currentStatus.feed_override, currentStatus.rapid_override, currentStatus.spindle_override);
     }
     
     // Parse SD card file progress (SD:percent,filename)

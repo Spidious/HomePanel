@@ -24,6 +24,7 @@ lv_obj_t *UITabStatus::lbl_mpos_z = nullptr;
 lv_obj_t *UITabStatus::lbl_feed_value = nullptr;
 lv_obj_t *UITabStatus::lbl_feed_override = nullptr;
 lv_obj_t *UITabStatus::lbl_feed_units = nullptr;
+lv_obj_t *UITabStatus::lbl_rapid_override = nullptr;
 lv_obj_t *UITabStatus::lbl_spindle_value = nullptr;
 lv_obj_t *UITabStatus::lbl_spindle_override = nullptr;
 lv_obj_t *UITabStatus::lbl_spindle_units = nullptr;
@@ -46,6 +47,7 @@ float UITabStatus::last_mpos_y = -9999.0f;
 float UITabStatus::last_mpos_z = -9999.0f;
 float UITabStatus::last_feed_rate = -1.0f;
 float UITabStatus::last_feed_override = -1.0f;
+float UITabStatus::last_rapid_override = -1.0f;
 float UITabStatus::last_spindle_speed = -1.0f;
 float UITabStatus::last_spindle_override = -1.0f;
 char UITabStatus::last_state[16] = "";
@@ -366,7 +368,20 @@ void UITabStatus::create(lv_obj_t *tab) {
     lv_label_set_text(lbl_feed_units, "mm/min");
     lv_obj_set_style_text_font(lbl_feed_units, &lv_font_montserrat_16, 0);
     lv_obj_set_style_text_color(lbl_feed_units, UITheme::TEXT_DISABLED, 0);
-    lv_obj_set_pos(lbl_feed_units, 455, 131);  // Second line
+    lv_obj_set_pos(lbl_feed_units, 455, 129);  // Moved up 2px from 131
+
+    // RAPID OVERRIDE - Between feed and spindle
+    lv_obj_t *status_rapid_label = lv_label_create(tab);
+    lv_label_set_text(status_rapid_label, "RAPID");
+    lv_obj_set_style_text_font(status_rapid_label, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(status_rapid_label, UITheme::TEXT_DISABLED, 0);
+    lv_obj_set_pos(status_rapid_label, 455, 147);
+    
+    lbl_rapid_override = lv_label_create(tab);
+    lv_label_set_text(lbl_rapid_override, "100%");
+    lv_obj_set_style_text_font(lbl_rapid_override, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(lbl_rapid_override, UITheme::UI_INFO, 0);
+    lv_obj_set_pos(lbl_rapid_override, 555, 147);  // Right aligned with percentage
 
     lv_obj_t *status_speed_header = lv_label_create(tab);
     lv_label_set_text(status_speed_header, "SPINDLE");
@@ -527,6 +542,20 @@ void UITabStatus::updateFeedRate(float rate, float override_pct) {
         snprintf(buf, sizeof(buf), "%.0f%%", override_pct);
         lv_label_set_text(lbl_feed_override, buf);
         last_feed_override = override_pct;
+    }
+}
+
+void UITabStatus::updateRapidOverride(float override_pct) {
+    // Only update if value changed
+    if (override_pct == last_rapid_override) {
+        return;
+    }
+    
+    if (lbl_rapid_override) {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "%.0f%%", override_pct);
+        lv_label_set_text(lbl_rapid_override, buf);
+        last_rapid_override = override_pct;
     }
 }
 

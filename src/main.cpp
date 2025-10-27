@@ -12,6 +12,7 @@
 #include "ui/ui_common.h"       // UI common components (status bar)
 #include "ui/ui_tabs.h"         // UI tabs module
 #include "ui/tabs/ui_tab_status.h" // Status tab for updates
+#include "ui/tabs/control/ui_tab_control_override.h" // Override tab for updates
 #include "ui/machine_config.h"  // Machine configuration manager
 
 void setup()
@@ -152,6 +153,7 @@ void loop()
         UITabStatus::updateWorkPosition(status.wpos_x, status.wpos_y, status.wpos_z);
         UITabStatus::updateMachinePosition(status.mpos_x, status.mpos_y, status.mpos_z);
         UITabStatus::updateFeedRate(status.feed_rate, status.feed_override);
+        UITabStatus::updateRapidOverride(status.rapid_override);
         UITabStatus::updateSpindle(status.spindle_speed, status.spindle_override);
         UITabStatus::updateModalStates(status.modal_wcs, status.modal_plane, status.modal_distance,
                                       status.modal_units, status.modal_motion, status.modal_feedrate,
@@ -159,6 +161,9 @@ void loop()
         UITabStatus::updateFileProgress(status.is_sd_printing, status.sd_percent, 
                                        status.sd_filename, status.sd_elapsed_ms);
         UITabStatus::updateMessage(status.last_message);
+        
+        // Update Override tab
+        UITabControlOverride::updateValues(status.feed_override, status.rapid_override, status.spindle_override);
         }
     }
     
