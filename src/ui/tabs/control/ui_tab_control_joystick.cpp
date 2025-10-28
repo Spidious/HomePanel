@@ -25,9 +25,8 @@ static const float JOG_TIME_INCREMENT = 0.025f;   // 25ms in seconds (nominal dt
 
 // Send jog cancel command (realtime command 0x85)
 static void sendJogCancel() {
-    // Send jog cancel realtime command
-    const char cancel_cmd = 0x85;
-    FluidNCClient::sendCommand(&cancel_cmd);
+    // Send as null-terminated string (same format as jog tab uses)
+    FluidNCClient::sendCommand("\x85");
     Serial.println("Joystick: Sent jog cancel (0x85)");
 }
 

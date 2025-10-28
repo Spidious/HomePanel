@@ -25,7 +25,7 @@ void UITabSettingsAbout::create(lv_obj_t *tab) {
     
     // Version (medium, gray)
     lv_obj_t *version = lv_label_create(container);
-    lv_label_set_text(version, "Version: v0.01_PRE-ALPHA");
+    lv_label_set_text(version, "Version: " FLUIDTOUCH_VERSION);
     lv_obj_set_style_text_font(version, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(version, UITheme::TEXT_MEDIUM, 0);
     

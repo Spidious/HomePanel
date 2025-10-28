@@ -41,7 +41,7 @@ void UITabSettingsProbe::create(lv_obj_t *tab) {
     
     int y_pos = 20;
     int label_x = 20;
-    int field_x = 200;
+    int field_x = 250;  // Shifted 50px right (was 200)
     
     // Title
     lv_obj_t *title = lv_label_create(tab);
@@ -55,7 +55,7 @@ void UITabSettingsProbe::create(lv_obj_t *tab) {
     // === Feed Rate ===
     lv_obj_t *lbl_feed = lv_label_create(tab);
     lv_label_set_text(lbl_feed, "Feed Rate (mm/min):");
-    lv_obj_set_style_text_font(lbl_feed, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_feed, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(lbl_feed, UITheme::TEXT_LIGHT, 0);
     lv_obj_set_pos(lbl_feed, label_x, y_pos + 12);  // Align with text area content
     
@@ -65,6 +65,7 @@ void UITabSettingsProbe::create(lv_obj_t *tab) {
     lv_textarea_set_one_line(ta_feed, true);
     lv_textarea_set_max_length(ta_feed, 6);
     lv_textarea_set_accepted_chars(ta_feed, "0123456789");
+    lv_obj_set_style_text_font(ta_feed, &lv_font_montserrat_18, 0);
     lv_obj_add_event_cb(ta_feed, textarea_focused_event_handler, LV_EVENT_FOCUSED, nullptr);
     char buf[16];
     snprintf(buf, sizeof(buf), "%d", default_feed_rate);
@@ -74,7 +75,7 @@ void UITabSettingsProbe::create(lv_obj_t *tab) {
     // === Max Distance ===
     lv_obj_t *lbl_dist = lv_label_create(tab);
     lv_label_set_text(lbl_dist, "Max Distance (mm):");
-    lv_obj_set_style_text_font(lbl_dist, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_dist, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(lbl_dist, UITheme::TEXT_LIGHT, 0);
     lv_obj_set_pos(lbl_dist, label_x, y_pos + 12);  // Align with text area content
     
@@ -84,6 +85,7 @@ void UITabSettingsProbe::create(lv_obj_t *tab) {
     lv_textarea_set_one_line(ta_dist, true);
     lv_textarea_set_max_length(ta_dist, 6);
     lv_textarea_set_accepted_chars(ta_dist, "0123456789");
+    lv_obj_set_style_text_font(ta_dist, &lv_font_montserrat_18, 0);
     lv_obj_add_event_cb(ta_dist, textarea_focused_event_handler, LV_EVENT_FOCUSED, nullptr);
     snprintf(buf, sizeof(buf), "%d", default_max_distance);
     lv_textarea_set_text(ta_dist, buf);
@@ -92,7 +94,7 @@ void UITabSettingsProbe::create(lv_obj_t *tab) {
     // === Retract Distance ===
     lv_obj_t *lbl_retract = lv_label_create(tab);
     lv_label_set_text(lbl_retract, "Retract (mm):");
-    lv_obj_set_style_text_font(lbl_retract, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_retract, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(lbl_retract, UITheme::TEXT_LIGHT, 0);
     lv_obj_set_pos(lbl_retract, label_x, y_pos + 12);  // Align with text area content
     
@@ -102,6 +104,7 @@ void UITabSettingsProbe::create(lv_obj_t *tab) {
     lv_textarea_set_one_line(ta_retract, true);
     lv_textarea_set_max_length(ta_retract, 6);
     lv_textarea_set_accepted_chars(ta_retract, "0123456789");
+    lv_obj_set_style_text_font(ta_retract, &lv_font_montserrat_18, 0);
     lv_obj_add_event_cb(ta_retract, textarea_focused_event_handler, LV_EVENT_FOCUSED, nullptr);
     snprintf(buf, sizeof(buf), "%d", default_retract);
     lv_textarea_set_text(ta_retract, buf);
@@ -110,7 +113,7 @@ void UITabSettingsProbe::create(lv_obj_t *tab) {
     // === Probe Thickness ===
     lv_obj_t *lbl_thickness = lv_label_create(tab);
     lv_label_set_text(lbl_thickness, "Probe Thickness (mm):");
-    lv_obj_set_style_text_font(lbl_thickness, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_thickness, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(lbl_thickness, UITheme::TEXT_LIGHT, 0);
     lv_obj_set_pos(lbl_thickness, label_x, y_pos + 12);  // Align with text area content
     
@@ -118,8 +121,9 @@ void UITabSettingsProbe::create(lv_obj_t *tab) {
     lv_obj_set_size(ta_thickness, 100, 40);
     lv_obj_set_pos(ta_thickness, field_x, y_pos);
     lv_textarea_set_one_line(ta_thickness, true);
-    lv_textarea_set_max_length(ta_thickness, 6);
-    lv_textarea_set_accepted_chars(ta_thickness, "0123456789.");  // Allow decimal point
+    lv_textarea_set_max_length(ta_thickness, 8);
+    lv_textarea_set_accepted_chars(ta_thickness, "0123456789.");
+    lv_obj_set_style_text_font(ta_thickness, &lv_font_montserrat_18, 0);
     lv_obj_add_event_cb(ta_thickness, textarea_focused_event_handler, LV_EVENT_FOCUSED, nullptr);
     snprintf(buf, sizeof(buf), "%.1f", default_thickness);
     lv_textarea_set_text(ta_thickness, buf);

@@ -45,9 +45,9 @@ void UITabSettingsJog::create(lv_obj_t *tab) {
     
     int y_pos = 20;
     int col1_label_x = 20;
-    int col1_field_x = 165;
-    int col2_label_x = 380;
-    int col2_field_x = 525;
+    int col1_field_x = 215;  // Shifted 50px right (was 165)
+    int col2_label_x = 360;  // Moved 20px left (was 380)
+    int col2_field_x = 555;  // Moved 20px left (was 575)
     
     // Title - Column 1
     lv_obj_t *title = lv_label_create(tab);
@@ -68,7 +68,7 @@ void UITabSettingsJog::create(lv_obj_t *tab) {
     // === XY Step Size ===
     lv_obj_t *lbl_xy_step = lv_label_create(tab);
     lv_label_set_text(lbl_xy_step, "XY Step (mm):");
-    lv_obj_set_style_text_font(lbl_xy_step, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_xy_step, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(lbl_xy_step, UITheme::TEXT_LIGHT, 0);
     lv_obj_set_pos(lbl_xy_step, col1_label_x, y_pos + 12);  // Align with text area content
     
@@ -78,6 +78,7 @@ void UITabSettingsJog::create(lv_obj_t *tab) {
     lv_textarea_set_one_line(ta_xy_step, true);
     lv_textarea_set_max_length(ta_xy_step, 6);
     lv_textarea_set_accepted_chars(ta_xy_step, "0123456789");
+    lv_obj_set_style_text_font(ta_xy_step, &lv_font_montserrat_18, 0);
     lv_obj_add_event_cb(ta_xy_step, textarea_focused_event_handler, LV_EVENT_FOCUSED, nullptr);
     char buf[16];
     snprintf(buf, sizeof(buf), "%.0f", default_xy_step);
@@ -86,7 +87,7 @@ void UITabSettingsJog::create(lv_obj_t *tab) {
     // === Max XY Feed (Column 2) ===
     lv_obj_t *lbl_max_xy_feed = lv_label_create(tab);
     lv_label_set_text(lbl_max_xy_feed, "Max XY (mm/min):");
-    lv_obj_set_style_text_font(lbl_max_xy_feed, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_max_xy_feed, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(lbl_max_xy_feed, UITheme::TEXT_LIGHT, 0);
     lv_obj_set_pos(lbl_max_xy_feed, col2_label_x, y_pos + 12);  // Align with text area content
     
@@ -96,6 +97,7 @@ void UITabSettingsJog::create(lv_obj_t *tab) {
     lv_textarea_set_one_line(ta_max_xy_feed, true);
     lv_textarea_set_max_length(ta_max_xy_feed, 6);
     lv_textarea_set_accepted_chars(ta_max_xy_feed, "0123456789");
+    lv_obj_set_style_text_font(ta_max_xy_feed, &lv_font_montserrat_18, 0);
     lv_obj_add_event_cb(ta_max_xy_feed, textarea_focused_event_handler, LV_EVENT_FOCUSED, nullptr);
     snprintf(buf, sizeof(buf), "%d", max_xy_feed);
     lv_textarea_set_text(ta_max_xy_feed, buf);
@@ -104,7 +106,7 @@ void UITabSettingsJog::create(lv_obj_t *tab) {
     // === Z Step Size ===
     lv_obj_t *lbl_z_step = lv_label_create(tab);
     lv_label_set_text(lbl_z_step, "Z Step (mm):");
-    lv_obj_set_style_text_font(lbl_z_step, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_z_step, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(lbl_z_step, UITheme::TEXT_LIGHT, 0);
     lv_obj_set_pos(lbl_z_step, col1_label_x, y_pos + 12);  // Align with text area content
     
@@ -114,6 +116,7 @@ void UITabSettingsJog::create(lv_obj_t *tab) {
     lv_textarea_set_one_line(ta_z_step, true);
     lv_textarea_set_max_length(ta_z_step, 6);
     lv_textarea_set_accepted_chars(ta_z_step, "0123456789");
+    lv_obj_set_style_text_font(ta_z_step, &lv_font_montserrat_18, 0);
     lv_obj_add_event_cb(ta_z_step, textarea_focused_event_handler, LV_EVENT_FOCUSED, nullptr);
     snprintf(buf, sizeof(buf), "%.0f", default_z_step);
     lv_textarea_set_text(ta_z_step, buf);
@@ -121,7 +124,7 @@ void UITabSettingsJog::create(lv_obj_t *tab) {
     // === Max Z Feed (Column 2) ===
     lv_obj_t *lbl_max_z_feed = lv_label_create(tab);
     lv_label_set_text(lbl_max_z_feed, "Max Z (mm/min):");
-    lv_obj_set_style_text_font(lbl_max_z_feed, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_max_z_feed, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(lbl_max_z_feed, UITheme::TEXT_LIGHT, 0);
     lv_obj_set_pos(lbl_max_z_feed, col2_label_x, y_pos + 12);  // Align with text area content
     
@@ -131,6 +134,7 @@ void UITabSettingsJog::create(lv_obj_t *tab) {
     lv_textarea_set_one_line(ta_max_z_feed, true);
     lv_textarea_set_max_length(ta_max_z_feed, 6);
     lv_textarea_set_accepted_chars(ta_max_z_feed, "0123456789");
+    lv_obj_set_style_text_font(ta_max_z_feed, &lv_font_montserrat_18, 0);
     lv_obj_add_event_cb(ta_max_z_feed, textarea_focused_event_handler, LV_EVENT_FOCUSED, nullptr);
     snprintf(buf, sizeof(buf), "%d", max_z_feed);
     lv_textarea_set_text(ta_max_z_feed, buf);
@@ -139,7 +143,7 @@ void UITabSettingsJog::create(lv_obj_t *tab) {
     // === XY Feed Rate ===
     lv_obj_t *lbl_xy_feed = lv_label_create(tab);
     lv_label_set_text(lbl_xy_feed, "XY Feed (mm/min):");
-    lv_obj_set_style_text_font(lbl_xy_feed, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_xy_feed, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(lbl_xy_feed, UITheme::TEXT_LIGHT, 0);
     lv_obj_set_pos(lbl_xy_feed, col1_label_x, y_pos + 12);  // Align with text area content
     
@@ -149,6 +153,7 @@ void UITabSettingsJog::create(lv_obj_t *tab) {
     lv_textarea_set_one_line(ta_xy_feed, true);
     lv_textarea_set_max_length(ta_xy_feed, 6);
     lv_textarea_set_accepted_chars(ta_xy_feed, "0123456789");
+    lv_obj_set_style_text_font(ta_xy_feed, &lv_font_montserrat_18, 0);
     lv_obj_add_event_cb(ta_xy_feed, textarea_focused_event_handler, LV_EVENT_FOCUSED, nullptr);
     snprintf(buf, sizeof(buf), "%d", default_xy_feed);
     lv_textarea_set_text(ta_xy_feed, buf);
@@ -157,7 +162,7 @@ void UITabSettingsJog::create(lv_obj_t *tab) {
     // === Z Feed Rate ===
     lv_obj_t *lbl_z_feed = lv_label_create(tab);
     lv_label_set_text(lbl_z_feed, "Z Feed (mm/min):");
-    lv_obj_set_style_text_font(lbl_z_feed, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lbl_z_feed, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(lbl_z_feed, UITheme::TEXT_LIGHT, 0);
     lv_obj_set_pos(lbl_z_feed, col1_label_x, y_pos + 12);  // Align with text area content
     
@@ -167,6 +172,7 @@ void UITabSettingsJog::create(lv_obj_t *tab) {
     lv_textarea_set_one_line(ta_z_feed, true);
     lv_textarea_set_max_length(ta_z_feed, 6);
     lv_textarea_set_accepted_chars(ta_z_feed, "0123456789");
+    lv_obj_set_style_text_font(ta_z_feed, &lv_font_montserrat_18, 0);
     lv_obj_add_event_cb(ta_z_feed, textarea_focused_event_handler, LV_EVENT_FOCUSED, nullptr);
     snprintf(buf, sizeof(buf), "%d", default_z_feed);
     lv_textarea_set_text(ta_z_feed, buf);

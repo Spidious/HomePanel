@@ -10,7 +10,6 @@ private:
     static void createGeneralTab(lv_obj_t *tab);
     static void createJogTab(lv_obj_t *tab);
     static void createProbeTab(lv_obj_t *tab);
-    static void createFluidNCTab(lv_obj_t *tab);
     static void createAboutTab(lv_obj_t *tab);
 };
 

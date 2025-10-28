@@ -3,6 +3,9 @@
 
 #include <Arduino.h>
 
+// Version
+#define FLUIDTOUCH_VERSION "v0.1-ALPHA"
+
 // Display settings
 #define SCREEN_WIDTH  800
 #define SCREEN_HEIGHT 480

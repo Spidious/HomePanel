@@ -26,15 +26,22 @@ void UITabSettingsGeneral::create(lv_obj_t *tab) {
     
     Serial.printf("UITabSettingsGeneral: Loaded show_mach_sel=%d\n", show_machine_select);
     
-    // === Machine Selection Toggle ===
+    // === Machine Selection Section ===
+    lv_obj_t *section_title = lv_label_create(tab);
+    lv_label_set_text(section_title, "MACHINE SELECTION");
+    lv_obj_set_style_text_font(section_title, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_color(section_title, UITheme::TEXT_DISABLED, 0);
+    lv_obj_set_pos(section_title, 20, 20);
+    
+    // Show label and switch on same line
     lv_obj_t *machine_sel_label = lv_label_create(tab);
-    lv_label_set_text(machine_sel_label, "Show Machine Selection:");
+    lv_label_set_text(machine_sel_label, "Show:");
     lv_obj_set_style_text_font(machine_sel_label, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(machine_sel_label, UITheme::TEXT_LIGHT, 0);
-    lv_obj_set_pos(machine_sel_label, 20, 20);  // Changed from 40 to 20
+    lv_obj_set_pos(machine_sel_label, 20, 72);  // 20 + 40 (title spacing) + 12 (vertical alignment)
     
     show_machine_select_switch = lv_switch_create(tab);
-    lv_obj_set_pos(show_machine_select_switch, 360, 15);  // Adjusted position
+    lv_obj_set_pos(show_machine_select_switch, 100, 67);  // 20 + 40 (title spacing) + 7 (switch alignment)
     if (show_machine_select) {
         lv_obj_add_state(show_machine_select_switch, LV_STATE_CHECKED);
     }
@@ -42,9 +49,9 @@ void UITabSettingsGeneral::create(lv_obj_t *tab) {
     // Description text
     lv_obj_t *desc_label = lv_label_create(tab);
     lv_label_set_text(desc_label, "When disabled, the first configured machine\nwill be loaded automatically at startup.");
-    lv_obj_set_style_text_font(desc_label, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(desc_label, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(desc_label, UITheme::TEXT_MEDIUM, 0);
-    lv_obj_set_pos(desc_label, 20, 55);  // Changed from 40 to 20
+    lv_obj_set_pos(desc_label, 20, 107);  // 20 + 40 (title) + 40 (switch row) + 7 (spacing)
     
     // === Action Buttons (positioned at bottom with 20px margins) ===
     // Save button
