@@ -120,6 +120,12 @@ public:
     // Clear message callback
     static void clearMessageCallback();
     
+    // Set callback for terminal display (excludes status reports starting with '<')
+    static void setTerminalCallback(MessageCallback callback);
+    
+    // Clear terminal callback
+    static void clearTerminalCallback();
+    
 private:
     static WebSocketsClient webSocket;
     static FluidNCStatus currentStatus;
@@ -127,6 +133,7 @@ private:
     static uint32_t lastStatusRequestMs;
     static bool initialized;
     static MessageCallback messageCallback;  // Optional callback for raw messages
+    static MessageCallback terminalCallback; // Optional callback for terminal display
     
     // WebSocket event handler
     static void onWebSocketEvent(WStype_t type, uint8_t* payload, size_t length);

@@ -10,6 +10,7 @@ MachineConfig FluidNCClient::currentConfig;
 uint32_t FluidNCClient::lastStatusRequestMs = 0;
 bool FluidNCClient::initialized = false;
 MessageCallback FluidNCClient::messageCallback = nullptr;
+MessageCallback FluidNCClient::terminalCallback = nullptr;
 
 void FluidNCClient::init() {
     if (initialized) return;
@@ -99,6 +100,16 @@ void FluidNCClient::clearMessageCallback() {
     Serial.println("[FluidNC] Message callback cleared");
 }
 
+void FluidNCClient::setTerminalCallback(MessageCallback callback) {
+    terminalCallback = callback;
+    Serial.println("[FluidNC] Terminal callback registered");
+}
+
+void FluidNCClient::clearTerminalCallback() {
+    terminalCallback = nullptr;
+    Serial.println("[FluidNC] Terminal callback cleared");
+}
+
 void FluidNCClient::onWebSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
     switch(type) {
         case WStype_DISCONNECTED:
@@ -155,6 +166,12 @@ void FluidNCClient::onWebSocketEvent(WStype_t type, uint8_t* payload, size_t len
                 // Call message callback if registered (for file lists, etc.)
                 if (messageCallback) {
                     messageCallback(message);
+                }
+                
+                // Call terminal callback if registered (for terminal display)
+                // Terminal tab will filter out status messages (starting with '<')
+                if (terminalCallback) {
+                    terminalCallback(message);
                 }
                 
                 // Parse different message types

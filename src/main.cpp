@@ -12,6 +12,7 @@
 #include "ui/ui_common.h"       // UI common components (status bar)
 #include "ui/ui_tabs.h"         // UI tabs module
 #include "ui/tabs/ui_tab_status.h" // Status tab for updates
+#include "ui/tabs/ui_tab_terminal.h" // Terminal tab for updates
 #include "ui/tabs/control/ui_tab_control_override.h" // Override tab for updates
 #include "ui/machine_config.h"  // Machine configuration manager
 
@@ -166,6 +167,9 @@ void loop()
         UITabControlOverride::updateValues(status.feed_override, status.rapid_override, status.spindle_override);
         }
     }
+    
+    // Update Terminal tab (batched UI updates every 100ms)
+    UITabTerminal::update();
     
     // Update LVGL tick (CRITICAL for timers and input device polling!)
     static uint32_t lastTick = 0;
