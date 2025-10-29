@@ -4,10 +4,14 @@
 #include <lvgl.h>
 #include "config.h"
 
+// Forward declaration
+class DisplayDriver;
+
 // UI state and shared objects
 class UICommon {
 public:
     static void init(lv_display_t *disp);
+    static void setDisplayDriver(DisplayDriver* driver);  // Set display driver reference
     static void createMainUI();  // Creates main UI screen, status bar, and tabs
     static void createStatusBar();
     
@@ -40,6 +44,7 @@ public:
     
 private:
     static lv_display_t *display;
+    static DisplayDriver *display_driver;
     static lv_obj_t *status_bar;
     static lv_obj_t *status_bar_left_area;   // Clickable area for Status tab
     static lv_obj_t *status_bar_right_area;  // Clickable area for machine selection

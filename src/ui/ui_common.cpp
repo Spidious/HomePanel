@@ -4,12 +4,15 @@
 #include "ui/machine_config.h"
 #include "ui/ui_machine_select.h"
 #include "fluidnc_client.h"
+#include "display_driver.h"
+#include "screenshot_server.h"
 #include "config.h"
 #include <Preferences.h>
 #include <WiFi.h>
 
 // Static member initialization
 lv_display_t *UICommon::display = nullptr;
+DisplayDriver *UICommon::display_driver = nullptr;
 lv_obj_t *UICommon::status_bar = nullptr;
 lv_obj_t *UICommon::status_bar_left_area = nullptr;
 lv_obj_t *UICommon::status_bar_right_area = nullptr;
@@ -105,6 +108,10 @@ void UICommon::init(lv_display_t *disp) {
     display = disp;
 }
 
+void UICommon::setDisplayDriver(DisplayDriver* driver) {
+    display_driver = driver;
+}
+
 void UICommon::createMainUI() {
     Serial.println("UICommon: Creating main UI");
     
@@ -153,6 +160,15 @@ void UICommon::createMainUI() {
             if (WiFi.status() == WL_CONNECTED) {
                 Serial.println("\nWiFi connected!");
                 Serial.printf("IP Address: %s\n", WiFi.localIP().toString().c_str());
+                
+                // Initialize screenshot server now that WiFi is connected
+                if (display_driver) {
+                    Serial.println("Initializing screenshot server with WiFi connection...");
+                    ScreenshotServer::init(display_driver);
+                    if (ScreenshotServer::isConnected()) {
+                        Serial.println("Screenshot server available at: http://" + ScreenshotServer::getIPAddress());
+                    }
+                }
                 
                 // Update WiFi status in status bar
                 if (lbl_wifi_name) {

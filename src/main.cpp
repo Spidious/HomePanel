@@ -43,12 +43,11 @@ void setup()
     }
     Serial.println("Touch driver initialized successfully");
 
-    // Initialize Screenshot Server (WiFi)
-    Serial.println("Initializing screenshot server...");
-    ScreenshotServer::init(&displayDriver);
-    if (ScreenshotServer::isConnected()) {
-        Serial.println("Screenshot server available at: http://" + ScreenshotServer::getIPAddress());
-    }
+    // Store display driver reference for later use (screenshot server after WiFi connects)
+    UICommon::setDisplayDriver(&displayDriver);
+
+    // Initialize Screenshot Server (WiFi not connected yet, will initialize after machine selection)
+    Serial.println("Screenshot server will initialize after WiFi connection...");
 
     // Initialize FluidNC Client
     Serial.println("Initializing FluidNC client...");
