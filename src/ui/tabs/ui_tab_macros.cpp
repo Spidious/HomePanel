@@ -779,6 +779,7 @@ void UITabMacros::showKeyboard(lv_obj_t *textarea) {
     keyboard = lv_keyboard_create(lv_scr_act());
     lv_obj_set_size(keyboard, 800, 280);
     lv_obj_align(keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_set_style_text_font(keyboard, &lv_font_montserrat_20, 0);  // Larger font for better visibility
     lv_keyboard_set_textarea(keyboard, textarea);
     
     // Add event handler for keyboard close button

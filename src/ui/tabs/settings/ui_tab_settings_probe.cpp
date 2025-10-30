@@ -223,6 +223,7 @@ void UITabSettingsProbe::showKeyboard(lv_obj_t *ta) {
         keyboard = lv_keyboard_create(lv_scr_act());
         lv_obj_set_size(keyboard, SCREEN_WIDTH, 220);
         lv_obj_align(keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
+        lv_obj_set_style_text_font(keyboard, &lv_font_montserrat_20, 0);  // Larger font for better visibility
         lv_keyboard_set_mode(keyboard, LV_KEYBOARD_MODE_NUMBER);  // All probe settings are numeric
         lv_obj_add_event_cb(keyboard, [](lv_event_t *e) { UITabSettingsProbe::hideKeyboard(); }, LV_EVENT_READY, nullptr);
         lv_obj_add_event_cb(keyboard, [](lv_event_t *e) { UITabSettingsProbe::hideKeyboard(); }, LV_EVENT_CANCEL, nullptr);

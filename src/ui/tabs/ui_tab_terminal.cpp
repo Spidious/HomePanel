@@ -101,6 +101,7 @@ void UITabTerminal::input_field_event_cb(lv_event_t *e) {
             lv_keyboard_set_textarea(keyboard, input_field);
             lv_obj_set_size(keyboard, SCREEN_WIDTH, 240);
             lv_obj_align(keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
+            lv_obj_set_style_text_font(keyboard, &lv_font_montserrat_20, 0);  // Larger font for better visibility
             lv_obj_add_event_cb(keyboard, keyboard_event_cb, LV_EVENT_READY, nullptr);
             lv_obj_add_event_cb(keyboard, keyboard_event_cb, LV_EVENT_CANCEL, nullptr);
         } else {
