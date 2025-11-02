@@ -10,8 +10,8 @@ public:
 private:
     static lv_obj_t *xy_step_display_label;
     static lv_obj_t *z_step_display_label;
-    static lv_obj_t *xy_step_buttons[6];
-    static lv_obj_t *z_step_buttons[3];
+    static lv_obj_t *xy_step_buttons[5];
+    static lv_obj_t *z_step_buttons[5];
     static lv_obj_t *xy_feedrate_label;
     static lv_obj_t *z_feedrate_label;
     static float xy_current_step;
