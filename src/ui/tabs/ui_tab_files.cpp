@@ -384,9 +384,10 @@ static void delete_button_event_cb(lv_event_t *e) {
         
         // File name
         lv_obj_t *name_label = lv_label_create(content);
-        lv_label_set_text_fmt(name_label, "\"%s\"", filename);
+        lv_label_set_text_fmt(name_label, "%s", filename);
         lv_obj_set_style_text_font(name_label, &lv_font_montserrat_20, 0);
         lv_obj_set_style_text_color(name_label, UITheme::TEXT_LIGHT, 0);
+        lv_obj_set_style_text_align(name_label, LV_TEXT_ALIGN_CENTER, 0);
         lv_label_set_long_mode(name_label, LV_LABEL_LONG_DOT);
         lv_obj_set_width(name_label, 450);
         

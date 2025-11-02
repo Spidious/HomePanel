@@ -733,57 +733,74 @@ void UITabMacros::showDeleteConfirmDialog() {
     // Create modal background
     delete_dialog = lv_obj_create(lv_scr_act());
     lv_obj_set_size(delete_dialog, LV_PCT(100), LV_PCT(100));
-    lv_obj_set_style_bg_color(delete_dialog, lv_color_hex(0x000000), 0);
-    lv_obj_set_style_bg_opa(delete_dialog, LV_OPA_60, 0);
+    lv_obj_set_style_bg_color(delete_dialog, lv_color_make(0, 0, 0), 0);
+    lv_obj_set_style_bg_opa(delete_dialog, LV_OPA_70, 0);
     lv_obj_set_style_border_width(delete_dialog, 0, 0);
     lv_obj_clear_flag(delete_dialog, LV_OBJ_FLAG_SCROLLABLE);
     
-    // Create dialog container
-    lv_obj_t *dialog = lv_obj_create(delete_dialog);
-    lv_obj_set_size(dialog, 500, 250);
-    lv_obj_center(dialog);
-    lv_obj_set_style_bg_color(dialog, UITheme::BG_DARK, 0);
-    lv_obj_set_style_border_width(dialog, 2, 0);
-    lv_obj_set_style_border_color(dialog, UITheme::STATE_ALARM, 0);
-    lv_obj_set_style_pad_all(dialog, 20, 0);
-    lv_obj_clear_flag(dialog, LV_OBJ_FLAG_SCROLLABLE);
+    // Dialog content box
+    lv_obj_t *content = lv_obj_create(delete_dialog);
+    lv_obj_set_size(content, 500, 220);
+    lv_obj_center(content);
+    lv_obj_set_style_bg_color(content, UITheme::BG_MEDIUM, 0);
+    lv_obj_set_style_border_color(content, UITheme::STATE_ALARM, 0);
+    lv_obj_set_style_border_width(content, 3, 0);
+    lv_obj_set_flex_flow(content, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(content, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_all(content, 20, 0);
+    lv_obj_set_style_pad_gap(content, 15, 0);
+    lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
     
-    // Title
-    lv_obj_t *title = lv_label_create(dialog);
-    lv_label_set_text(title, "Delete Macro?");
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_24, 0);
+    // Warning icon and title
+    lv_obj_t *title = lv_label_create(content);
+    lv_label_set_text_fmt(title, "%s Delete Macro?", LV_SYMBOL_WARNING);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_22, 0);
     lv_obj_set_style_text_color(title, UITheme::STATE_ALARM, 0);
-    lv_obj_set_pos(title, 0, 0);
+    
+    // Macro name
+    lv_obj_t *name_label = lv_label_create(content);
+    lv_label_set_text(name_label, macros[editing_index].name);
+    lv_obj_set_style_text_font(name_label, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_color(name_label, UITheme::TEXT_LIGHT, 0);
+    lv_obj_set_style_text_align(name_label, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_long_mode(name_label, LV_LABEL_LONG_DOT);
+    lv_obj_set_width(name_label, 450);
     
     // Message
-    lv_obj_t *message = lv_label_create(dialog);
-    char msg[128];
-    snprintf(msg, sizeof(msg), "Delete macro '%s'?\nThis cannot be undone.", macros[editing_index].name);
-    lv_label_set_text(message, msg);
-    lv_obj_set_style_text_font(message, &lv_font_montserrat_18, 0);
-    lv_obj_set_pos(message, 0, 50);
+    lv_obj_t *msg_label = lv_label_create(content);
+    lv_label_set_text(msg_label, "This action cannot be undone.");
+    lv_obj_set_style_text_font(msg_label, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(msg_label, UITheme::UI_WARNING, 0);
+    
+    // Button container
+    lv_obj_t *btn_container = lv_obj_create(content);
+    lv_obj_set_size(btn_container, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(btn_container, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(btn_container, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_bg_opa(btn_container, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(btn_container, 0, 0);
+    lv_obj_set_style_pad_all(btn_container, 0, 0);
+    lv_obj_clear_flag(btn_container, LV_OBJ_FLAG_SCROLLABLE);
     
     // Cancel button
-    lv_obj_t *btn_cancel = lv_btn_create(dialog);
-    lv_obj_set_size(btn_cancel, 130, 50);
-    lv_obj_set_pos(btn_cancel, 210, 150);
-    lv_obj_set_style_bg_color(btn_cancel, UITheme::BG_MEDIUM, 0);
-    lv_obj_add_event_cb(btn_cancel, onDeleteCancel, LV_EVENT_CLICKED, nullptr);
+    lv_obj_t *cancel_btn = lv_btn_create(btn_container);
+    lv_obj_set_size(cancel_btn, 180, 50);
+    lv_obj_set_style_bg_color(cancel_btn, UITheme::BG_BUTTON, 0);
+    lv_obj_add_event_cb(cancel_btn, onDeleteCancel, LV_EVENT_CLICKED, nullptr);
     
-    lv_obj_t *cancel_label = lv_label_create(btn_cancel);
+    lv_obj_t *cancel_label = lv_label_create(cancel_btn);
     lv_label_set_text(cancel_label, "Cancel");
     lv_obj_set_style_text_font(cancel_label, &lv_font_montserrat_18, 0);
     lv_obj_center(cancel_label);
     
     // Delete button
-    lv_obj_t *btn_delete = lv_btn_create(dialog);
-    lv_obj_set_size(btn_delete, 130, 50);
-    lv_obj_set_pos(btn_delete, 350, 150);
-    lv_obj_set_style_bg_color(btn_delete, UITheme::STATE_ALARM, 0);
-    lv_obj_add_event_cb(btn_delete, onDeleteConfirm, LV_EVENT_CLICKED, nullptr);
+    lv_obj_t *delete_btn = lv_btn_create(btn_container);
+    lv_obj_set_size(delete_btn, 180, 50);
+    lv_obj_set_style_bg_color(delete_btn, UITheme::STATE_ALARM, 0);
+    lv_obj_add_event_cb(delete_btn, onDeleteConfirm, LV_EVENT_CLICKED, nullptr);
     
-    lv_obj_t *delete_label = lv_label_create(btn_delete);
-    lv_label_set_text(delete_label, "Delete");
+    lv_obj_t *delete_label = lv_label_create(delete_btn);
+    lv_label_set_text(delete_label, LV_SYMBOL_TRASH " Delete");
     lv_obj_set_style_text_font(delete_label, &lv_font_montserrat_18, 0);
     lv_obj_center(delete_label);
 }
