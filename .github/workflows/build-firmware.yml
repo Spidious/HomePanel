@@ -120,8 +120,13 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         pattern: firmware-*
-        path: web/firmware
-        merge-multiple: true
+        path: artifacts
+        
+    - name: Copy firmware files to web directory
+      run: |
+        mkdir -p web/firmware
+        cp artifacts/**/*.bin web/firmware/ 2>/dev/null || true
+        ls -la web/firmware/
         
     - name: Setup Pages
       uses: actions/configure-pages@v4
