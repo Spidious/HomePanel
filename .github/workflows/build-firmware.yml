@@ -124,8 +124,14 @@ jobs:
         
     - name: Copy firmware files to web directory
       run: |
+        echo "=== Artifact structure ==="
+        find artifacts -type f
+        echo "=== Copying firmware files ==="
         mkdir -p web/firmware
-        cp artifacts/**/*.bin web/firmware/ 2>/dev/null || true
+        find artifacts -name "*.bin" -exec cp {} web/firmware/ \;
+        cp artifacts/firmware-*/web/manifest.json web/ 2>/dev/null || true
+        cp artifacts/firmware-*/web/index.html web/ 2>/dev/null || true
+        echo "=== Final web/firmware contents ==="
         ls -la web/firmware/
         
     - name: Setup Pages
