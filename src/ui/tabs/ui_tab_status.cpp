@@ -463,7 +463,7 @@ void UITabStatus::updateState(const char *state) {
         lv_obj_set_style_text_color(lbl_state, UITheme::STATE_IDLE, 0);
     } else if (strcmp(state, "RUN") == 0 || strcmp(state, "JOG") == 0) {
         lv_obj_set_style_text_color(lbl_state, UITheme::STATE_RUN, 0);
-    } else if (strcmp(state, "ALARM") == 0) {
+    } else if (strcmp(state, "ALARM") == 0 || strcmp(state, "OFFLINE") == 0) {
         lv_obj_set_style_text_color(lbl_state, UITheme::STATE_ALARM, 0);
     } else {
         lv_obj_set_style_text_color(lbl_state, UITheme::UI_WARNING, 0);
@@ -479,20 +479,32 @@ void UITabStatus::updateWorkPosition(float x, float y, float z) {
     char buf[20];
     
     if (lbl_wpos_x && x != last_wpos_x) {
-        snprintf(buf, sizeof(buf), "X  %04.3f", x);
-        lv_label_set_text(lbl_wpos_x, buf);
+        if (x <= -9999.0f) {
+            lv_label_set_text(lbl_wpos_x, "X  ----.---");
+        } else {
+            snprintf(buf, sizeof(buf), "X  %04.3f", x);
+            lv_label_set_text(lbl_wpos_x, buf);
+        }
         last_wpos_x = x;
     }
     
     if (lbl_wpos_y && y != last_wpos_y) {
-        snprintf(buf, sizeof(buf), "Y  %04.3f", y);
-        lv_label_set_text(lbl_wpos_y, buf);
+        if (y <= -9999.0f) {
+            lv_label_set_text(lbl_wpos_y, "Y  ----.---");
+        } else {
+            snprintf(buf, sizeof(buf), "Y  %04.3f", y);
+            lv_label_set_text(lbl_wpos_y, buf);
+        }
         last_wpos_y = y;
     }
     
     if (lbl_wpos_z && z != last_wpos_z) {
-        snprintf(buf, sizeof(buf), "Z  %04.3f", z);
-        lv_label_set_text(lbl_wpos_z, buf);
+        if (z <= -9999.0f) {
+            lv_label_set_text(lbl_wpos_z, "Z  ----.---");
+        } else {
+            snprintf(buf, sizeof(buf), "Z  %04.3f", z);
+            lv_label_set_text(lbl_wpos_z, buf);
+        }
         last_wpos_z = z;
     }
 }
@@ -506,20 +518,32 @@ void UITabStatus::updateMachinePosition(float x, float y, float z) {
     char buf[20];
     
     if (lbl_mpos_x && x != last_mpos_x) {
-        snprintf(buf, sizeof(buf), "X  %04.3f", x);
-        lv_label_set_text(lbl_mpos_x, buf);
+        if (x <= -9999.0f) {
+            lv_label_set_text(lbl_mpos_x, "X  ----.---");
+        } else {
+            snprintf(buf, sizeof(buf), "X  %04.3f", x);
+            lv_label_set_text(lbl_mpos_x, buf);
+        }
         last_mpos_x = x;
     }
     
     if (lbl_mpos_y && y != last_mpos_y) {
-        snprintf(buf, sizeof(buf), "Y  %04.3f", y);
-        lv_label_set_text(lbl_mpos_y, buf);
+        if (y <= -9999.0f) {
+            lv_label_set_text(lbl_mpos_y, "Y  ----.---");
+        } else {
+            snprintf(buf, sizeof(buf), "Y  %04.3f", y);
+            lv_label_set_text(lbl_mpos_y, buf);
+        }
         last_mpos_y = y;
     }
     
     if (lbl_mpos_z && z != last_mpos_z) {
-        snprintf(buf, sizeof(buf), "Z  %04.3f", z);
-        lv_label_set_text(lbl_mpos_z, buf);
+        if (z <= -9999.0f) {
+            lv_label_set_text(lbl_mpos_z, "Z  ----.---");
+        } else {
+            snprintf(buf, sizeof(buf), "Z  %04.3f", z);
+            lv_label_set_text(lbl_mpos_z, buf);
+        }
         last_mpos_z = z;
     }
 }
@@ -533,14 +557,22 @@ void UITabStatus::updateFeedRate(float rate, float override_pct) {
     char buf[32];
     
     if (lbl_feed_value && rate != last_feed_rate) {
-        snprintf(buf, sizeof(buf), "%.0f", rate);  // Just the number, units on separate line
-        lv_label_set_text(lbl_feed_value, buf);
+        if (rate <= -9999.0f) {
+            lv_label_set_text(lbl_feed_value, "---");
+        } else {
+            snprintf(buf, sizeof(buf), "%.0f", rate);
+            lv_label_set_text(lbl_feed_value, buf);
+        }
         last_feed_rate = rate;
     }
     
     if (lbl_feed_override && override_pct != last_feed_override) {
-        snprintf(buf, sizeof(buf), "%.0f%%", override_pct);
-        lv_label_set_text(lbl_feed_override, buf);
+        if (override_pct <= -9999.0f) {
+            lv_label_set_text(lbl_feed_override, "---%");
+        } else {
+            snprintf(buf, sizeof(buf), "%.0f%%", override_pct);
+            lv_label_set_text(lbl_feed_override, buf);
+        }
         last_feed_override = override_pct;
     }
 }
@@ -553,8 +585,12 @@ void UITabStatus::updateRapidOverride(float override_pct) {
     
     if (lbl_rapid_override) {
         char buf[32];
-        snprintf(buf, sizeof(buf), "%.0f%%", override_pct);
-        lv_label_set_text(lbl_rapid_override, buf);
+        if (override_pct <= -9999.0f) {
+            lv_label_set_text(lbl_rapid_override, "---%");
+        } else {
+            snprintf(buf, sizeof(buf), "%.0f%%", override_pct);
+            lv_label_set_text(lbl_rapid_override, buf);
+        }
         last_rapid_override = override_pct;
     }
 }
@@ -568,14 +604,22 @@ void UITabStatus::updateSpindle(float speed, float override_pct) {
     char buf[32];
     
     if (lbl_spindle_value && speed != last_spindle_speed) {
-        snprintf(buf, sizeof(buf), "%.0f", speed);  // Just the number, units on separate line
-        lv_label_set_text(lbl_spindle_value, buf);
+        if (speed <= -9999.0f) {
+            lv_label_set_text(lbl_spindle_value, "---");
+        } else {
+            snprintf(buf, sizeof(buf), "%.0f", speed);
+            lv_label_set_text(lbl_spindle_value, buf);
+        }
         last_spindle_speed = speed;
     }
     
     if (lbl_spindle_override && override_pct != last_spindle_override) {
-        snprintf(buf, sizeof(buf), "%.0f%%", override_pct);
-        lv_label_set_text(lbl_spindle_override, buf);
+        if (override_pct <= -9999.0f) {
+            lv_label_set_text(lbl_spindle_override, "---%");
+        } else {
+            snprintf(buf, sizeof(buf), "%.0f%%", override_pct);
+            lv_label_set_text(lbl_spindle_override, buf);
+        }
         last_spindle_override = override_pct;
     }
 }

@@ -57,6 +57,7 @@ float UICommon::last_mpos_z = -9999.0f;
 static uint32_t connection_timeout_start = 0;
 static bool connection_timeout_active = false;
 static bool connection_error_shown = false;
+static bool ever_connected_successfully = false;  // Track if we've connected at least once
 
 // Event handler for status bar left area click (go to Status tab)
 static void status_bar_left_click_handler(lv_event_t *e) {
@@ -226,10 +227,19 @@ void UICommon::createMainUI() {
                 
                 // Show error dialog
                 showConnectionErrorDialog("WiFi Connection Failed", error_msg);
+                
+                // Disable connection timeout monitoring since we're not attempting machine connection
+                connection_timeout_active = false;
+                
+                // Do NOT attempt machine connection if WiFi failed
+                return;
             }
         } else {
             Serial.println("UICommon: Warning - Wireless connection selected but no SSID configured");
             // Popup already shown at start
+            // Disable connection timeout monitoring since we're not attempting machine connection
+            connection_timeout_active = false;
+            return;  // Don't attempt machine connection without WiFi config
         }
     } else {
         Serial.println("UICommon: Wired connection selected, skipping WiFi initialization");
@@ -237,6 +247,7 @@ void UICommon::createMainUI() {
     }
     
     // Connect to FluidNC using selected machine
+    // Only reached if WiFi connected successfully (or wired connection)
     Serial.printf("UICommon: Connecting to FluidNC at %s:%d\n", 
                  config.fluidnc_url, config.websocket_port);
     FluidNCClient::connect(config);
@@ -370,7 +381,20 @@ void UICommon::createStatusBar() {
 
     // Right side Line 2: WiFi network
     // WiFi network name (right-aligned, positioned first)
-    String wifi_ssid = WiFi.isConnected() ? WiFi.SSID() : "Not Connected";
+    // If WiFi connected, show actual SSID. Otherwise, show configured SSID from machine settings
+    String wifi_ssid;
+    if (WiFi.isConnected()) {
+        wifi_ssid = WiFi.SSID();
+    } else {
+        // Get configured SSID from machine settings
+        MachineConfig config;
+        if (MachineConfigManager::getSelectedMachine(config) && config.ssid[0] != '\0') {
+            wifi_ssid = String(config.ssid);
+        } else {
+            wifi_ssid = "Not Connected";
+        }
+    }
+    
     lbl_wifi_name = lv_label_create(status_bar);
     lv_label_set_text(lbl_wifi_name, wifi_ssid.c_str());
     lv_obj_set_style_text_font(lbl_wifi_name, &lv_font_montserrat_18, 0);
@@ -403,18 +427,30 @@ void UICommon::updateMachinePosition(float x, float y, float z) {
     char buf[16];
     
     if (status_bar && lbl_mpos_x && x != last_mpos_x) {
-        snprintf(buf, sizeof(buf), "X:%04.3f", x);
-        lv_label_set_text(lbl_mpos_x, buf);
+        if (x <= -9999.0f) {
+            lv_label_set_text(lbl_mpos_x, "X:----.---");
+        } else {
+            snprintf(buf, sizeof(buf), "X:%04.3f", x);
+            lv_label_set_text(lbl_mpos_x, buf);
+        }
         last_mpos_x = x;
     }
     if (status_bar && lbl_mpos_y && y != last_mpos_y) {
-        snprintf(buf, sizeof(buf), "Y:%04.3f", y);
-        lv_label_set_text(lbl_mpos_y, buf);
+        if (y <= -9999.0f) {
+            lv_label_set_text(lbl_mpos_y, "Y:----.---");
+        } else {
+            snprintf(buf, sizeof(buf), "Y:%04.3f", y);
+            lv_label_set_text(lbl_mpos_y, buf);
+        }
         last_mpos_y = y;
     }
     if (status_bar && lbl_mpos_z && z != last_mpos_z) {
-        snprintf(buf, sizeof(buf), "Z:%04.3f", z);
-        lv_label_set_text(lbl_mpos_z, buf);
+        if (z <= -9999.0f) {
+            lv_label_set_text(lbl_mpos_z, "Z:----.---");
+        } else {
+            snprintf(buf, sizeof(buf), "Z:%04.3f", z);
+            lv_label_set_text(lbl_mpos_z, buf);
+        }
         last_mpos_z = z;
     }
 }
@@ -428,18 +464,30 @@ void UICommon::updateWorkPosition(float x, float y, float z) {
     char buf[16];
     
     if (status_bar && lbl_wpos_x && x != last_wpos_x) {
-        snprintf(buf, sizeof(buf), "X:%04.3f", x);
-        lv_label_set_text(lbl_wpos_x, buf);
+        if (x <= -9999.0f) {
+            lv_label_set_text(lbl_wpos_x, "X:----.---");
+        } else {
+            snprintf(buf, sizeof(buf), "X:%04.3f", x);
+            lv_label_set_text(lbl_wpos_x, buf);
+        }
         last_wpos_x = x;
     }
     if (status_bar && lbl_wpos_y && y != last_wpos_y) {
-        snprintf(buf, sizeof(buf), "Y:%04.3f", y);
-        lv_label_set_text(lbl_wpos_y, buf);
+        if (y <= -9999.0f) {
+            lv_label_set_text(lbl_wpos_y, "Y:----.---");
+        } else {
+            snprintf(buf, sizeof(buf), "Y:%04.3f", y);
+            lv_label_set_text(lbl_wpos_y, buf);
+        }
         last_wpos_y = y;
     }
     if (status_bar && lbl_wpos_z && z != last_wpos_z) {
-        snprintf(buf, sizeof(buf), "Z:%04.3f", z);
-        lv_label_set_text(lbl_wpos_z, buf);
+        if (z <= -9999.0f) {
+            lv_label_set_text(lbl_wpos_z, "Z:----.---");
+        } else {
+            snprintf(buf, sizeof(buf), "Z:%04.3f", z);
+            lv_label_set_text(lbl_wpos_z, buf);
+        }
         last_wpos_z = z;
     }
 }
@@ -453,7 +501,7 @@ void UICommon::updateMachineState(const char *state) {
             lv_obj_set_style_text_color(lbl_status, UITheme::STATE_IDLE, 0);
         } else if (strcmp(state, "RUN") == 0 || strcmp(state, "JOG") == 0) {
             lv_obj_set_style_text_color(lbl_status, UITheme::STATE_RUN, 0);
-        } else if (strcmp(state, "ALARM") == 0) {
+        } else if (strcmp(state, "ALARM") == 0 || strcmp(state, "OFFLINE") == 0) {
             lv_obj_set_style_text_color(lbl_status, UITheme::STATE_ALARM, 0);
         } else {
             lv_obj_set_style_text_color(lbl_status, UITheme::UI_WARNING, 0);
@@ -631,6 +679,7 @@ static void on_connection_error_connect(lv_event_t *e) {
     
     // Show connecting popup
     UICommon::showConnectingPopup(config.name, config.ssid);
+    lv_refr_now(nullptr);  // Force immediate display update
     
     // Disconnect existing connections
     WiFi.disconnect();
@@ -810,6 +859,7 @@ void UICommon::checkConnectionTimeout() {
     if (FluidNCClient::isConnected()) {
         connection_timeout_active = false;
         connection_error_shown = false;
+        ever_connected_successfully = true;  // Mark that we've connected successfully
         hideConnectingPopup();  // Hide connecting popup when connected
         hideConnectionErrorDialog();
         return;
@@ -817,7 +867,8 @@ void UICommon::checkConnectionTimeout() {
     
     // Check if timeout exceeded (10 seconds)
     uint32_t elapsed = millis() - connection_timeout_start;
-    if (elapsed >= 10000 && !connection_error_shown) {
+    if (elapsed >= 10000 && !connection_error_shown && !ever_connected_successfully) {
+        // Only show error if we've never connected successfully (prevents popup on brief disconnects after initial connection)
         connection_error_shown = true;
         
         // Get machine config for error message

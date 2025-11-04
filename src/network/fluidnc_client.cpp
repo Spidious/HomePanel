@@ -47,10 +47,11 @@ bool FluidNCClient::connect(const MachineConfig &config) {
     webSocket.onEvent(onWebSocketEvent);
     webSocket.setReconnectInterval(1000);  // 1 second for initial connection attempts
     
-    // Disable heartbeat pings - they can interfere with bulk message transfers like $SS
-    // FluidNC already has its own keepalive mechanism via status reporting
-    webSocket.enableHeartbeat(0, 0, 0);  // Disabled
-    Serial.println("[FluidNC] WebSocket configured (heartbeat disabled for bulk transfers)");
+    // Enable relaxed heartbeat pings to detect dead connections without interfering with bulk transfers
+    // Send ping every 15 seconds, expect pong within 5 seconds, disconnect after 2 missed pongs
+    // Total timeout: ~35-40 seconds, but much more reliable than OS TCP keepalive
+    webSocket.enableHeartbeat(15000, 5000, 2);
+    Serial.println("[FluidNC] WebSocket configured with relaxed heartbeat (15s interval, 5s timeout, 2 retries)");
     
     currentStatus.is_connected = false;
     

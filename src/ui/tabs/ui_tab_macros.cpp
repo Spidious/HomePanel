@@ -437,8 +437,15 @@ void UITabMacros::onMacroClicked(lv_event_t *e) {
     Serial.printf("Macro clicked: %s (%s)\n", macros[index].name, macros[index].file_path);
     
     // Store the macro name for progress display
+    // Use the display name (not filename) since we just need to track that ANY macro from this tab is running
     strncpy(running_macro_name, macros[index].name, sizeof(running_macro_name) - 1);
     running_macro_name[sizeof(running_macro_name) - 1] = '\0';
+    Serial.printf("[Macros] Set running_macro_name to: '%s'\n", running_macro_name);
+    
+    // Initialize progress display with macro name and 0%
+    UITabMacros::updateProgress(0, running_macro_name, "Starting...");
+    UITabMacros::showProgress();
+    Serial.printf("[Macros] Progress display initialized and shown\n");
     
     // Build the $SD/Run command with full path
     // FluidNC expects: $SD/Run=/sd/fluidtouch/macros/filename.gcode
@@ -594,17 +601,20 @@ void UITabMacros::showConfigDialog(bool is_add) {
     if (UITabMacros::macro_files.empty()) {
         lv_dropdown_set_options(config_path_dropdown, "Loading files...");
     } else {
-        String options = "";
-        int selected_idx = 0;
+        // Files already loaded, populate dropdown and select current file
+        String options = "-- Select a file --";  // Add blank placeholder at top
+        int selected_idx = 0;  // Default to placeholder
+        
         for (size_t i = 0; i < UITabMacros::macro_files.size(); i++) {
-            if (i > 0) options += "\n";
+            options += "\n";
             options += UITabMacros::macro_files[i].c_str();
             
-            // Find the currently selected file if editing
-            if (!is_add && macro_files[i] == macros[editing_index].file_path) {
-                selected_idx = i;
+            // Find the currently selected file if editing (add 1 to index for placeholder offset)
+            if (!is_add && strcmp(macro_files[i].c_str(), macros[editing_index].file_path) == 0) {
+                selected_idx = i + 1;  // +1 for placeholder at index 0
             }
         }
+        
         lv_dropdown_set_options(config_path_dropdown, options.c_str());
         if (!is_add) {
             lv_dropdown_set_selected(config_path_dropdown, selected_idx);
@@ -707,7 +717,8 @@ void UITabMacros::onConfigSave(lv_event_t *e) {
         return;
     }
     
-    if (strlen(path_buffer) == 0 || strcmp(path_buffer, "Loading files...") == 0) {
+    if (strlen(path_buffer) == 0 || strcmp(path_buffer, "Loading files...") == 0 || 
+        strcmp(path_buffer, "-- Select a file --") == 0) {
         Serial.println("Macro file path is required");
         return;
     }
@@ -950,13 +961,31 @@ void UITabMacros::loadMacroFilesFromSD() {
                     
                     // Update dropdown if it exists
                     if (UITabMacros::config_path_dropdown) {
-                        String options = "";
+                        String options = "-- Select a file --";  // Add blank placeholder at top
+                        int selected_idx = 0;  // Default to placeholder
+                        
                         for (size_t i = 0; i < UITabMacros::macro_files.size(); i++) {
-                            if (i > 0) options += "\n";
+                            options += "\n";
                             options += UITabMacros::macro_files[i].c_str();
+                            
+                            // Find matching file if editing (add 1 to index for placeholder offset)
+                            if (UITabMacros::editing_index >= 0 && 
+                                strcmp(UITabMacros::macro_files[i].c_str(), 
+                                       UITabMacros::macros[UITabMacros::editing_index].file_path) == 0) {
+                                selected_idx = i + 1;  // +1 for placeholder at index 0
+                            }
                         }
+                        
                         lv_dropdown_set_options(UITabMacros::config_path_dropdown, options.c_str());
-                        Serial.println("[Macros] Dropdown updated with file list");
+                        
+                        // Set selected index if editing
+                        if (UITabMacros::editing_index >= 0) {
+                            lv_dropdown_set_selected(UITabMacros::config_path_dropdown, selected_idx);
+                            Serial.printf("[Macros] Dropdown updated, selected index %d for file '%s'\n", 
+                                selected_idx, UITabMacros::macros[UITabMacros::editing_index].file_path);
+                        } else {
+                            Serial.println("[Macros] Dropdown updated with file list");
+                        }
                     }
                 }
                 FluidNCClient::clearMessageCallback();
@@ -1001,13 +1030,31 @@ void UITabMacros::loadMacroFilesFromSD() {
                     
                     // Update dropdown if it exists
                     if (UITabMacros::config_path_dropdown) {
-                        String options = "";
+                        String options = "-- Select a file --";  // Add blank placeholder at top
+                        int selected_idx = 0;  // Default to placeholder
+                        
                         for (size_t i = 0; i < UITabMacros::macro_files.size(); i++) {
-                            if (i > 0) options += "\n";
+                            options += "\n";
                             options += UITabMacros::macro_files[i].c_str();
+                            
+                            // Find matching file if editing (add 1 to index for placeholder offset)
+                            if (UITabMacros::editing_index >= 0 && 
+                                strcmp(UITabMacros::macro_files[i].c_str(), 
+                                       UITabMacros::macros[UITabMacros::editing_index].file_path) == 0) {
+                                selected_idx = i + 1;  // +1 for placeholder at index 0
+                            }
                         }
+                        
                         lv_dropdown_set_options(UITabMacros::config_path_dropdown, options.c_str());
-                        Serial.println("[Macros] Dropdown updated with file list");
+                        
+                        // Set selected index if editing
+                        if (UITabMacros::editing_index >= 0) {
+                            lv_dropdown_set_selected(UITabMacros::config_path_dropdown, selected_idx);
+                            Serial.printf("[Macros] Dropdown updated, selected index %d for file '%s'\n", 
+                                selected_idx, UITabMacros::macros[UITabMacros::editing_index].file_path);
+                        } else {
+                            Serial.println("[Macros] Dropdown updated with file list");
+                        }
                     }
                 }
                 jsonBuffer = "";
@@ -1078,7 +1125,27 @@ void UITabMacros::showProgress() {
 void UITabMacros::hideProgress() {
     if (progress_container) {
         lv_obj_add_flag(progress_container, LV_OBJ_FLAG_HIDDEN);
-        // Clear the running macro name when hiding
-        running_macro_name[0] = '\0';
+        // Don't clear running_macro_name here - it needs to persist to track if a macro is running
+        // It will be cleared when the SD print actually finishes (in main loop)
     }
+}
+
+// Check if a macro from this tab is currently running
+bool UITabMacros::isMacroRunning() {
+    bool is_running = running_macro_name[0] != '\0';
+    if (is_running) {
+        Serial.printf("[Macros] isMacroRunning() = TRUE, name='%s'\n", running_macro_name);
+    }
+    return is_running;
+}
+
+// Clear running macro tracking (called when SD print finishes)
+void UITabMacros::clearRunningMacro() {
+    Serial.printf("[Macros] Clearing running macro: '%s'\n", running_macro_name);
+    running_macro_name[0] = '\0';
+}
+
+// Get the name of the currently running macro
+const char* UITabMacros::getRunningMacroName() {
+    return running_macro_name;
 }
