@@ -23,6 +23,9 @@ public:
     static void updateProgress(int percent, const char* macro_name, const char* message);
     static void showProgress();
     static void hideProgress();
+    static bool isMacroRunning();  // Check if a macro from this tab is running
+    static void clearRunningMacro();  // Clear running macro tracking
+    static const char* getRunningMacroName();  // Get the name of the running macro
     
 private:
     static lv_obj_t *parent_tab;

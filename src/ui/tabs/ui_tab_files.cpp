@@ -115,6 +115,17 @@ void UITabFiles::refreshFileList(const std::string &path) {
         return;
     }
     
+    // Check if machine is in IDLE state - don't fetch files if machine is running
+    const FluidNCStatus& status = FluidNCClient::getStatus();
+    if (status.state != STATE_IDLE) {
+        if (status_label) {
+            lv_label_set_text(status_label, "Machine must be IDLE to list files");
+            lv_obj_set_style_text_color(status_label, UITheme::UI_WARNING, 0);
+        }
+        Serial.printf("[Files] Machine not in IDLE state (state=%d), skipping file list\n", status.state);
+        return;
+    }
+    
     // Update current path
     current_path = path;
     
@@ -212,7 +223,7 @@ void UITabFiles::refreshFileList(const std::string &path) {
 
 void UITabFiles::refresh_button_event_cb(lv_event_t *e) {
     Serial.println("[Files] Refresh button clicked");
-    refreshFileList();
+    refreshFileList(current_path);  // Always refresh with current path, not just on initial load
 }
 
 void UITabFiles::storage_dropdown_event_cb(lv_event_t *e) {
@@ -517,12 +528,12 @@ void UITabFiles::parseFileList(const std::string &response) {
         }
     }
     
-    // Sort: directories first, then files, both alphabetically (case-insensitive)
+    // Sort: files first, then directories at bottom, both alphabetically (case-insensitive)
     std::sort(file_list_with_sizes.begin(), file_list_with_sizes.end(), 
         [](const FileInfo &a, const FileInfo &b) {
-            // Directories come before files
+            // Files come before directories (directories at bottom)
             if (a.is_directory != b.is_directory) {
-                return a.is_directory;  // true (directory) sorts before false (file)
+                return !a.is_directory;  // false (file) sorts before true (directory)
             }
             // Within same type, sort alphabetically (case-insensitive)
             std::string a_lower = a.name;
@@ -598,7 +609,7 @@ void UITabFiles::updateFileListUI() {
         lv_obj_t *lbl_filename = lv_label_create(file_row);
         if (file.is_directory) {
             char label_text[256];
-            snprintf(label_text, sizeof(label_text), LV_SYMBOL_DIRECTORY " /%s", file.name.c_str());
+            snprintf(label_text, sizeof(label_text), LV_SYMBOL_DIRECTORY " %s", file.name.c_str());
             lv_label_set_text(lbl_filename, label_text);
             lv_obj_set_style_text_color(lbl_filename, UITheme::ACCENT_SECONDARY, 0);
         } else {

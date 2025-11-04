@@ -132,55 +132,133 @@ void loop()
         if (machine_connected) {
             const FluidNCStatus& status = FluidNCClient::getStatus();
         
-        // Update status bar
-        const char* state_str = "IDLE";
-        switch (status.state) {
-            case STATE_IDLE: state_str = "IDLE"; break;
-            case STATE_RUN: state_str = "RUN"; break;
-            case STATE_HOLD: state_str = "HOLD"; break;
-            case STATE_JOG: state_str = "JOG"; break;
-            case STATE_ALARM: state_str = "ALARM"; break;
-            case STATE_DOOR: state_str = "DOOR"; break;
-            case STATE_CHECK: state_str = "CHECK"; break;
-            case STATE_HOME: state_str = "HOME"; break;
-            case STATE_SLEEP: state_str = "SLEEP"; break;
-            default: state_str = "DISCONNECTED"; break;
-        }
-        
-        UICommon::updateMachineState(state_str);
-        UICommon::updateMachinePosition(status.mpos_x, status.mpos_y, status.mpos_z);
-        UICommon::updateWorkPosition(status.wpos_x, status.wpos_y, status.wpos_z);
-        
-        // Check for HOLD/ALARM state and show popups if needed
-        UICommon::checkStatePopups(status.state, status.last_message);
-        
-        // Update Control Actions pause/resume button based on machine state
-        UITabControlActions::updatePauseButton(status.state);
-        
-        // Update Status tab
-        UITabStatus::updateState(state_str);
-        UITabStatus::updateWorkPosition(status.wpos_x, status.wpos_y, status.wpos_z);
-        UITabStatus::updateMachinePosition(status.mpos_x, status.mpos_y, status.mpos_z);
-        UITabStatus::updateFeedRate(status.feed_rate, status.feed_override);
-        UITabStatus::updateRapidOverride(status.rapid_override);
-        UITabStatus::updateSpindle(status.spindle_speed, status.spindle_override);
-        UITabStatus::updateModalStates(status.modal_wcs, status.modal_plane, status.modal_distance,
-                                      status.modal_units, status.modal_motion, status.modal_feedrate,
-                                      status.modal_spindle, status.modal_coolant, status.modal_tool);
-        UITabStatus::updateFileProgress(status.is_sd_printing, status.sd_percent, 
-                                       status.sd_filename, status.sd_elapsed_ms);
-        UITabStatus::updateMessage(status.last_message);
-        
-        // Update Macros tab progress (when SD file is running)
-        if (status.is_sd_printing && status.sd_percent > 0) {
-            UITabMacros::updateProgress((int)status.sd_percent, status.sd_filename, status.last_message);
-            UITabMacros::showProgress();
+            // Update status bar
+            const char* state_str = "IDLE";
+            switch (status.state) {
+                case STATE_IDLE: state_str = "IDLE"; break;
+                case STATE_RUN: state_str = "RUN"; break;
+                case STATE_HOLD: state_str = "HOLD"; break;
+                case STATE_JOG: state_str = "JOG"; break;
+                case STATE_ALARM: state_str = "ALARM"; break;
+                case STATE_DOOR: state_str = "DOOR"; break;
+                case STATE_CHECK: state_str = "CHECK"; break;
+                case STATE_HOME: state_str = "HOME"; break;
+                case STATE_SLEEP: state_str = "SLEEP"; break;
+                default: state_str = "DISCONNECTED"; break;
+            }
+            
+            UICommon::updateMachineState(state_str);
+            UICommon::updateMachinePosition(status.mpos_x, status.mpos_y, status.mpos_z);
+            UICommon::updateWorkPosition(status.wpos_x, status.wpos_y, status.wpos_z);
+            
+            // Check for HOLD/ALARM state and show popups if needed
+            UICommon::checkStatePopups(status.state, status.last_message);
+            
+            // Update Control Actions pause/resume button based on machine state
+            UITabControlActions::updatePauseButton(status.state);
+            
+            // Update Status tab
+            UITabStatus::updateState(state_str);
+            UITabStatus::updateWorkPosition(status.wpos_x, status.wpos_y, status.wpos_z);
+            UITabStatus::updateMachinePosition(status.mpos_x, status.mpos_y, status.mpos_z);
+            UITabStatus::updateFeedRate(status.feed_rate, status.feed_override);
+            UITabStatus::updateRapidOverride(status.rapid_override);
+            UITabStatus::updateSpindle(status.spindle_speed, status.spindle_override);
+            UITabStatus::updateModalStates(status.modal_wcs, status.modal_plane, status.modal_distance,
+                                        status.modal_units, status.modal_motion, status.modal_feedrate,
+                                        status.modal_spindle, status.modal_coolant, status.modal_tool);
+            UITabStatus::updateFileProgress(status.is_sd_printing, status.sd_percent, 
+                                        status.sd_filename, status.sd_elapsed_ms);
+            UITabStatus::updateMessage(status.last_message);
+            
+            // Update Macros tab progress (only when a macro from that tab is running)
+            static bool macro_print_started = false;  // Track if SD print actually started
+            static unsigned long completion_display_start = 0;  // Track 100% display time
+            static unsigned long macro_start_time = 0;  // Track when macro button was clicked
+            static const unsigned long COMPLETION_DISPLAY_MS = 2000;  // Show 100% for 2 seconds
+            static const unsigned long FAST_MACRO_TIMEOUT_MS = 1000;  // If no SD activity within 1s, assume macro completed
+            bool is_macro_running = UITabMacros::isMacroRunning();
+            
+            // Detect when a new macro starts (transition from not running to running)
+            static bool was_macro_running = false;
+            if (is_macro_running && !was_macro_running) {
+                // New macro just started
+                macro_start_time = millis();
+                macro_print_started = false;
+                Serial.printf("[Main] New macro started, tracking start time\n");
+            }
+            was_macro_running = is_macro_running;
+            
+            if (status.is_sd_printing && status.sd_percent > 0 && is_macro_running) {
+                macro_print_started = true;  // Mark that print has started
+                completion_display_start = 0;  // Reset completion timer while printing
+                Serial.printf("[Main] Showing progress: printing=%d, percent=%.1f, macro_running=%d\n", 
+                    status.is_sd_printing, status.sd_percent, is_macro_running);
+                // Use the stored macro name (not the SD filename)
+                UITabMacros::updateProgress((int)status.sd_percent, UITabMacros::getRunningMacroName(), status.last_message);
+                UITabMacros::showProgress();
+            } else {
+                // Check if macro completed (either we saw SD activity that stopped, or it was too fast)
+                bool macro_completed = false;
+                
+                if (is_macro_running && macro_print_started && !status.is_sd_printing) {
+                    // Normal case: SD print started and then stopped
+                    macro_completed = true;
+                    Serial.printf("[Main] Macro completed (normal)\n");
+                } else if (is_macro_running && !macro_print_started && macro_start_time > 0 && 
+                          (millis() - macro_start_time >= FAST_MACRO_TIMEOUT_MS)) {
+                    // Fast macro case: never saw SD activity, but enough time passed
+                    macro_completed = true;
+                    Serial.printf("[Main] Macro completed (fast, no SD activity detected)\n");
+                }
+                
+                if (macro_completed) {
+                    // Macro completed - start 2-second display timer if not already started
+                    if (completion_display_start == 0) {
+                        completion_display_start = millis();
+                        Serial.printf("[Main] Showing 100%% for 2 seconds\n");
+                        // Show 100% with the macro name
+                        UITabMacros::updateProgress(100, UITabMacros::getRunningMacroName(), "Complete");
+                        UITabMacros::showProgress();
+                    } else {
+                        // Check if 2 seconds have elapsed
+                        if (millis() - completion_display_start >= COMPLETION_DISPLAY_MS) {
+                            Serial.printf("[Main] Completion display timeout, clearing macro\n");
+                            UITabMacros::clearRunningMacro();
+                            macro_print_started = false;
+                            completion_display_start = 0;
+                            macro_start_time = 0;
+                            UITabMacros::hideProgress();
+                        } else {
+                            // Still within 2-second window, keep showing 100%
+                            UITabMacros::showProgress();
+                        }
+                    }
+                } else if (is_macro_running && !macro_print_started && macro_start_time > 0) {
+                    // Macro is running but hasn't started SD print yet - keep showing progress
+                    UITabMacros::showProgress();
+                } else {
+                    // No macro running, hide progress
+                    UITabMacros::hideProgress();
+                }
+            }
+            
+            // Update Override tab
+            UITabControlOverride::updateValues(status.feed_override, status.rapid_override, status.spindle_override);
         } else {
-            UITabMacros::hideProgress();
-        }
-        
-        // Update Override tab
-        UITabControlOverride::updateValues(status.feed_override, status.rapid_override, status.spindle_override);
+            // Machine disconnected - show OFFLINE state and reset all values to dashes
+            UICommon::updateMachineState("OFFLINE");
+            UICommon::updateMachinePosition(-9999.0f, -9999.0f, -9999.0f);  // Triggers dash display
+            UICommon::updateWorkPosition(-9999.0f, -9999.0f, -9999.0f);     // Triggers dash display
+            
+            // Update Status tab with OFFLINE state and reset all values
+            UITabStatus::updateState("OFFLINE");
+            UITabStatus::updateWorkPosition(-9999.0f, -9999.0f, -9999.0f);
+            UITabStatus::updateMachinePosition(-9999.0f, -9999.0f, -9999.0f);
+            UITabStatus::updateFeedRate(-9999.0f, -9999.0f);  // Reset feed rate and override
+            UITabStatus::updateRapidOverride(-9999.0f);        // Reset rapid override
+            UITabStatus::updateSpindle(-9999.0f, -9999.0f);    // Reset spindle and override
+            UITabStatus::updateModalStates("---", "---", "---", "---", "---", "---", "---", "---", "---");
         }
     }
     

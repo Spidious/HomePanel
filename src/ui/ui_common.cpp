@@ -52,11 +52,16 @@ float UICommon::last_wpos_z = -9999.0f;
 float UICommon::last_mpos_x = -9999.0f;
 float UICommon::last_mpos_y = -9999.0f;
 float UICommon::last_mpos_z = -9999.0f;
+static char last_machine_state[16] = "";  // Cached state to avoid unnecessary updates
+static bool last_machine_connected = false;  // Cached connection status
+static bool last_wifi_connected = false;     // Cached WiFi status
+static bool last_auto_reporting = false;     // Cached auto-reporting status
 
 // Connection timeout tracking
 static uint32_t connection_timeout_start = 0;
 static bool connection_timeout_active = false;
 static bool connection_error_shown = false;
+static bool ever_connected_successfully = false;  // Track if we've connected at least once
 
 // Event handler for status bar left area click (go to Status tab)
 static void status_bar_left_click_handler(lv_event_t *e) {
@@ -226,10 +231,19 @@ void UICommon::createMainUI() {
                 
                 // Show error dialog
                 showConnectionErrorDialog("WiFi Connection Failed", error_msg);
+                
+                // Disable connection timeout monitoring since we're not attempting machine connection
+                connection_timeout_active = false;
+                
+                // Do NOT attempt machine connection if WiFi failed
+                return;
             }
         } else {
             Serial.println("UICommon: Warning - Wireless connection selected but no SSID configured");
             // Popup already shown at start
+            // Disable connection timeout monitoring since we're not attempting machine connection
+            connection_timeout_active = false;
+            return;  // Don't attempt machine connection without WiFi config
         }
     } else {
         Serial.println("UICommon: Wired connection selected, skipping WiFi initialization");
@@ -237,6 +251,7 @@ void UICommon::createMainUI() {
     }
     
     // Connect to FluidNC using selected machine
+    // Only reached if WiFi connected successfully (or wired connection)
     Serial.printf("UICommon: Connecting to FluidNC at %s:%d\n", 
                  config.fluidnc_url, config.websocket_port);
     FluidNCClient::connect(config);
@@ -295,50 +310,54 @@ void UICommon::createStatusBar() {
     lv_label_set_text(lbl_wpos_label, "WPos:");
     lv_obj_set_style_text_font(lbl_wpos_label, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(lbl_wpos_label, UITheme::POS_WORK, 0);  // Orange - primary data
-    lv_obj_align(lbl_wpos_label, LV_ALIGN_TOP_MID, -198, 3);  // -210 + 2 + 10 = -198
+    lv_obj_set_style_text_align(lbl_wpos_label, LV_TEXT_ALIGN_RIGHT, 0);
+    lv_obj_set_width(lbl_wpos_label, 60);  // Fixed width for right alignment
+    lv_obj_set_pos(lbl_wpos_label, 200, 3);  // Top line
 
     lbl_wpos_x = lv_label_create(status_bar);
-    lv_label_set_text(lbl_wpos_x, "X:----.---");
+    lv_label_set_text(lbl_wpos_x, "X ----.---");
     lv_obj_set_style_text_font(lbl_wpos_x, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(lbl_wpos_x, UITheme::AXIS_X, 0);
-    lv_obj_align(lbl_wpos_x, LV_ALIGN_TOP_MID, -110, 3);  // -120 + 10 = -110
+    lv_obj_set_pos(lbl_wpos_x, 270, 3);
 
     lbl_wpos_y = lv_label_create(status_bar);
-    lv_label_set_text(lbl_wpos_y, "Y:----.---");
+    lv_label_set_text(lbl_wpos_y, "Y ----.---");
     lv_obj_set_style_text_font(lbl_wpos_y, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(lbl_wpos_y, UITheme::AXIS_Y, 0);
-    lv_obj_align(lbl_wpos_y, LV_ALIGN_TOP_MID, 0, 3);  // -10 + 10 = 0
+    lv_obj_set_pos(lbl_wpos_y, 380, 3);
 
     lbl_wpos_z = lv_label_create(status_bar);
-    lv_label_set_text(lbl_wpos_z, "Z:----.---");
+    lv_label_set_text(lbl_wpos_z, "Z ----.---");
     lv_obj_set_style_text_font(lbl_wpos_z, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(lbl_wpos_z, UITheme::AXIS_Z, 0);
-    lv_obj_align(lbl_wpos_z, LV_ALIGN_TOP_MID, 110, 3);  // 100 + 10 = 110
+    lv_obj_set_pos(lbl_wpos_z, 490, 3);
 
     // Machine Position - Line 2
     lbl_mpos_label = lv_label_create(status_bar);
     lv_label_set_text(lbl_mpos_label, "MPos:");
     lv_obj_set_style_text_font(lbl_mpos_label, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(lbl_mpos_label, UITheme::POS_MACHINE, 0);  // Cyan - secondary data
-    lv_obj_align(lbl_mpos_label, LV_ALIGN_BOTTOM_MID, -198, -3);  // -210 + 2 + 10 = -198
+    lv_obj_set_style_text_align(lbl_mpos_label, LV_TEXT_ALIGN_RIGHT, 0);
+    lv_obj_set_width(lbl_mpos_label, 60);  // Fixed width for right alignment
+    lv_obj_set_pos(lbl_mpos_label, 200, 27);  // Bottom line, aligned with WiFi name
 
     lbl_mpos_x = lv_label_create(status_bar);
-    lv_label_set_text(lbl_mpos_x, "X:----.---");
+    lv_label_set_text(lbl_mpos_x, "X ----.---");
     lv_obj_set_style_text_font(lbl_mpos_x, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(lbl_mpos_x, UITheme::AXIS_X, 0);
-    lv_obj_align(lbl_mpos_x, LV_ALIGN_BOTTOM_MID, -110, -3);  // -120 + 10 = -110
+    lv_obj_set_pos(lbl_mpos_x, 270, 27);
 
     lbl_mpos_y = lv_label_create(status_bar);
-    lv_label_set_text(lbl_mpos_y, "Y:----.---");
+    lv_label_set_text(lbl_mpos_y, "Y ----.---");
     lv_obj_set_style_text_font(lbl_mpos_y, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(lbl_mpos_y, UITheme::AXIS_Y, 0);
-    lv_obj_align(lbl_mpos_y, LV_ALIGN_BOTTOM_MID, 0, -3);  // -10 + 10 = 0
+    lv_obj_set_pos(lbl_mpos_y, 380, 27);
 
     lbl_mpos_z = lv_label_create(status_bar);
-    lv_label_set_text(lbl_mpos_z, "Z:----.---");
+    lv_label_set_text(lbl_mpos_z, "Z ----.---");
     lv_obj_set_style_text_font(lbl_mpos_z, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(lbl_mpos_z, UITheme::AXIS_Z, 0);
-    lv_obj_align(lbl_mpos_z, LV_ALIGN_BOTTOM_MID, 110, -3);  // 100 + 10 = 110
+    lv_obj_set_pos(lbl_mpos_z, 490, 27);
 
     // Right side Line 1: Machine name with symbol
     // Get selected machine from config manager
@@ -370,7 +389,20 @@ void UICommon::createStatusBar() {
 
     // Right side Line 2: WiFi network
     // WiFi network name (right-aligned, positioned first)
-    String wifi_ssid = WiFi.isConnected() ? WiFi.SSID() : "Not Connected";
+    // If WiFi connected, show actual SSID. Otherwise, show configured SSID from machine settings
+    String wifi_ssid;
+    if (WiFi.isConnected()) {
+        wifi_ssid = WiFi.SSID();
+    } else {
+        // Get configured SSID from machine settings
+        MachineConfig config;
+        if (MachineConfigManager::getSelectedMachine(config) && config.ssid[0] != '\0') {
+            wifi_ssid = String(config.ssid);
+        } else {
+            wifi_ssid = "Not Connected";
+        }
+    }
+    
     lbl_wifi_name = lv_label_create(status_bar);
     lv_label_set_text(lbl_wifi_name, wifi_ssid.c_str());
     lv_obj_set_style_text_font(lbl_wifi_name, &lv_font_montserrat_18, 0);
@@ -403,18 +435,30 @@ void UICommon::updateMachinePosition(float x, float y, float z) {
     char buf[16];
     
     if (status_bar && lbl_mpos_x && x != last_mpos_x) {
-        snprintf(buf, sizeof(buf), "X:%04.3f", x);
-        lv_label_set_text(lbl_mpos_x, buf);
+        if (x <= -9999.0f) {
+            lv_label_set_text(lbl_mpos_x, "X ----.---");
+        } else {
+            snprintf(buf, sizeof(buf), "X %04.3f", x);
+            lv_label_set_text(lbl_mpos_x, buf);
+        }
         last_mpos_x = x;
     }
     if (status_bar && lbl_mpos_y && y != last_mpos_y) {
-        snprintf(buf, sizeof(buf), "Y:%04.3f", y);
-        lv_label_set_text(lbl_mpos_y, buf);
+        if (y <= -9999.0f) {
+            lv_label_set_text(lbl_mpos_y, "Y ----.---");
+        } else {
+            snprintf(buf, sizeof(buf), "Y %04.3f", y);
+            lv_label_set_text(lbl_mpos_y, buf);
+        }
         last_mpos_y = y;
     }
     if (status_bar && lbl_mpos_z && z != last_mpos_z) {
-        snprintf(buf, sizeof(buf), "Z:%04.3f", z);
-        lv_label_set_text(lbl_mpos_z, buf);
+        if (z <= -9999.0f) {
+            lv_label_set_text(lbl_mpos_z, "Z ----.---");
+        } else {
+            snprintf(buf, sizeof(buf), "Z %04.3f", z);
+            lv_label_set_text(lbl_mpos_z, buf);
+        }
         last_mpos_z = z;
     }
 }
@@ -428,32 +472,53 @@ void UICommon::updateWorkPosition(float x, float y, float z) {
     char buf[16];
     
     if (status_bar && lbl_wpos_x && x != last_wpos_x) {
-        snprintf(buf, sizeof(buf), "X:%04.3f", x);
-        lv_label_set_text(lbl_wpos_x, buf);
+        if (x <= -9999.0f) {
+            lv_label_set_text(lbl_wpos_x, "X ----.---");
+        } else {
+            snprintf(buf, sizeof(buf), "X %04.3f", x);
+            lv_label_set_text(lbl_wpos_x, buf);
+        }
         last_wpos_x = x;
     }
     if (status_bar && lbl_wpos_y && y != last_wpos_y) {
-        snprintf(buf, sizeof(buf), "Y:%04.3f", y);
-        lv_label_set_text(lbl_wpos_y, buf);
+        if (y <= -9999.0f) {
+            lv_label_set_text(lbl_wpos_y, "Y ----.---");
+        } else {
+            snprintf(buf, sizeof(buf), "Y %04.3f", y);
+            lv_label_set_text(lbl_wpos_y, buf);
+        }
         last_wpos_y = y;
     }
     if (status_bar && lbl_wpos_z && z != last_wpos_z) {
-        snprintf(buf, sizeof(buf), "Z:%04.3f", z);
-        lv_label_set_text(lbl_wpos_z, buf);
+        if (z <= -9999.0f) {
+            lv_label_set_text(lbl_wpos_z, "Z ----.---");
+        } else {
+            snprintf(buf, sizeof(buf), "Z %04.3f", z);
+            lv_label_set_text(lbl_wpos_z, buf);
+        }
         last_wpos_z = z;
     }
 }
 
 void UICommon::updateMachineState(const char *state) {
     if (status_bar && lbl_status) {
+        // Only update if state actually changed
+        if (strcmp(state, last_machine_state) == 0) {
+            return;  // No change, skip update
+        }
+        
         lv_label_set_text(lbl_status, state);
+        
+        // Update cached state
+        strncpy(last_machine_state, state, sizeof(last_machine_state) - 1);
+        last_machine_state[sizeof(last_machine_state) - 1] = '\0';
         
         // Color code the status (state is already uppercase)
         if (strcmp(state, "IDLE") == 0) {
             lv_obj_set_style_text_color(lbl_status, UITheme::STATE_IDLE, 0);
         } else if (strcmp(state, "RUN") == 0 || strcmp(state, "JOG") == 0) {
             lv_obj_set_style_text_color(lbl_status, UITheme::STATE_RUN, 0);
-        } else if (strcmp(state, "ALARM") == 0) {
+        } else if (strcmp(state, "ALARM") == 0 || strcmp(state, "OFFLINE") == 0) {
             lv_obj_set_style_text_color(lbl_status, UITheme::STATE_ALARM, 0);
         } else {
             lv_obj_set_style_text_color(lbl_status, UITheme::UI_WARNING, 0);
@@ -462,26 +527,31 @@ void UICommon::updateMachineState(const char *state) {
 }
 
 void UICommon::updateConnectionStatus(bool machine_connected, bool wifi_connected) {
+    bool auto_reporting = FluidNCClient::isAutoReporting();
+    
     // Update machine symbol color with three states:
     // - Red (STATE_ALARM): Disconnected
     // - Orange (UI_WARNING): Connected with fallback polling (degraded)
     // - Green (STATE_IDLE): Connected with auto-reporting (optimal)
-    if (lbl_machine_symbol) {
+    if (lbl_machine_symbol && (machine_connected != last_machine_connected || auto_reporting != last_auto_reporting)) {
         lv_color_t color;
         if (!machine_connected) {
             color = UITheme::STATE_ALARM;  // Red: Disconnected
-        } else if (!FluidNCClient::isAutoReporting()) {
+        } else if (!auto_reporting) {
             color = UITheme::UI_WARNING;   // Orange: Fallback polling (1s updates)
         } else {
             color = UITheme::STATE_IDLE;   // Green: Auto-reporting (250ms updates)
         }
         lv_obj_set_style_text_color(lbl_machine_symbol, color, 0);
+        last_machine_connected = machine_connected;
+        last_auto_reporting = auto_reporting;
     }
     
     // Update WiFi symbol color
-    if (lbl_wifi_symbol) {
+    if (lbl_wifi_symbol && wifi_connected != last_wifi_connected) {
         lv_obj_set_style_text_color(lbl_wifi_symbol, 
             wifi_connected ? UITheme::STATE_IDLE : UITheme::STATE_ALARM, 0);
+        last_wifi_connected = wifi_connected;
     }
 }
 
@@ -631,6 +701,7 @@ static void on_connection_error_connect(lv_event_t *e) {
     
     // Show connecting popup
     UICommon::showConnectingPopup(config.name, config.ssid);
+    lv_refr_now(nullptr);  // Force immediate display update
     
     // Disconnect existing connections
     WiFi.disconnect();
@@ -810,6 +881,7 @@ void UICommon::checkConnectionTimeout() {
     if (FluidNCClient::isConnected()) {
         connection_timeout_active = false;
         connection_error_shown = false;
+        ever_connected_successfully = true;  // Mark that we've connected successfully
         hideConnectingPopup();  // Hide connecting popup when connected
         hideConnectionErrorDialog();
         return;
@@ -817,7 +889,8 @@ void UICommon::checkConnectionTimeout() {
     
     // Check if timeout exceeded (10 seconds)
     uint32_t elapsed = millis() - connection_timeout_start;
-    if (elapsed >= 10000 && !connection_error_shown) {
+    if (elapsed >= 10000 && !connection_error_shown && !ever_connected_successfully) {
+        // Only show error if we've never connected successfully (prevents popup on brief disconnects after initial connection)
         connection_error_shown = true;
         
         // Get machine config for error message

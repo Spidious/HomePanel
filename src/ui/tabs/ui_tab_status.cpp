@@ -60,6 +60,10 @@ char UITabStatus::last_modal_feedrate[8] = "";
 char UITabStatus::last_modal_spindle[8] = "";
 char UITabStatus::last_modal_coolant[8] = "";
 char UITabStatus::last_modal_tool[8] = "";
+bool UITabStatus::last_is_printing = false;
+float UITabStatus::last_file_percent = -1.0f;
+char UITabStatus::last_filename[64] = "";
+uint32_t UITabStatus::last_elapsed_seconds = 0;
 
 void UITabStatus::create(lv_obj_t *tab) {
     // Set 5px margins by using padding
@@ -114,7 +118,7 @@ void UITabStatus::create(lv_obj_t *tab) {
     lv_label_set_text(lbl_percent, "0.0%");
     lv_obj_set_style_text_font(lbl_percent, &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_color(lbl_percent, UITheme::UI_SUCCESS, 0);
-    lv_obj_set_pos(lbl_percent, 340, 18);
+    lv_obj_set_pos(lbl_percent, 335, 20);
     
     // Elapsed time - split into label, value, unit (moved 85px right for 5px more space)
     lv_obj_t *elapsed_label = lv_label_create(lbl_file_progress_container);
@@ -143,14 +147,14 @@ void UITabStatus::create(lv_obj_t *tab) {
     lv_obj_set_style_text_font(estimated_label, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(estimated_label, UITheme::UI_WARNING, 0);  // Colored label
     lv_obj_set_style_text_align(estimated_label, LV_TEXT_ALIGN_RIGHT, 0);
-    lv_obj_set_pos(estimated_label, 385, 22);  // 5px more space (390→385)
+    lv_obj_set_pos(estimated_label, 385, 21);  // 5px more space (390→385)
     lv_obj_set_width(estimated_label, 65);  // 5px wider (60→65)
     
     lbl_estimated_time = lv_label_create(lbl_file_progress_container);
     lv_label_set_text(lbl_estimated_time, "00:00");
     lv_obj_set_style_text_font(lbl_estimated_time, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(lbl_estimated_time, UITheme::TEXT_LIGHT, 0);  // White value
-    lv_obj_set_pos(lbl_estimated_time, 455, 22);
+    lv_obj_set_pos(lbl_estimated_time, 455, 21);
     
     lbl_estimated_unit = lv_label_create(lbl_file_progress_container);
     lv_label_set_text(lbl_estimated_unit, "min:sec");  // Changed from mm:ss
@@ -463,7 +467,7 @@ void UITabStatus::updateState(const char *state) {
         lv_obj_set_style_text_color(lbl_state, UITheme::STATE_IDLE, 0);
     } else if (strcmp(state, "RUN") == 0 || strcmp(state, "JOG") == 0) {
         lv_obj_set_style_text_color(lbl_state, UITheme::STATE_RUN, 0);
-    } else if (strcmp(state, "ALARM") == 0) {
+    } else if (strcmp(state, "ALARM") == 0 || strcmp(state, "OFFLINE") == 0) {
         lv_obj_set_style_text_color(lbl_state, UITheme::STATE_ALARM, 0);
     } else {
         lv_obj_set_style_text_color(lbl_state, UITheme::UI_WARNING, 0);
@@ -479,20 +483,32 @@ void UITabStatus::updateWorkPosition(float x, float y, float z) {
     char buf[20];
     
     if (lbl_wpos_x && x != last_wpos_x) {
-        snprintf(buf, sizeof(buf), "X  %04.3f", x);
-        lv_label_set_text(lbl_wpos_x, buf);
+        if (x <= -9999.0f) {
+            lv_label_set_text(lbl_wpos_x, "X  ----.---");
+        } else {
+            snprintf(buf, sizeof(buf), "X  %04.3f", x);
+            lv_label_set_text(lbl_wpos_x, buf);
+        }
         last_wpos_x = x;
     }
     
     if (lbl_wpos_y && y != last_wpos_y) {
-        snprintf(buf, sizeof(buf), "Y  %04.3f", y);
-        lv_label_set_text(lbl_wpos_y, buf);
+        if (y <= -9999.0f) {
+            lv_label_set_text(lbl_wpos_y, "Y  ----.---");
+        } else {
+            snprintf(buf, sizeof(buf), "Y  %04.3f", y);
+            lv_label_set_text(lbl_wpos_y, buf);
+        }
         last_wpos_y = y;
     }
     
     if (lbl_wpos_z && z != last_wpos_z) {
-        snprintf(buf, sizeof(buf), "Z  %04.3f", z);
-        lv_label_set_text(lbl_wpos_z, buf);
+        if (z <= -9999.0f) {
+            lv_label_set_text(lbl_wpos_z, "Z  ----.---");
+        } else {
+            snprintf(buf, sizeof(buf), "Z  %04.3f", z);
+            lv_label_set_text(lbl_wpos_z, buf);
+        }
         last_wpos_z = z;
     }
 }
@@ -506,20 +522,32 @@ void UITabStatus::updateMachinePosition(float x, float y, float z) {
     char buf[20];
     
     if (lbl_mpos_x && x != last_mpos_x) {
-        snprintf(buf, sizeof(buf), "X  %04.3f", x);
-        lv_label_set_text(lbl_mpos_x, buf);
+        if (x <= -9999.0f) {
+            lv_label_set_text(lbl_mpos_x, "X  ----.---");
+        } else {
+            snprintf(buf, sizeof(buf), "X  %04.3f", x);
+            lv_label_set_text(lbl_mpos_x, buf);
+        }
         last_mpos_x = x;
     }
     
     if (lbl_mpos_y && y != last_mpos_y) {
-        snprintf(buf, sizeof(buf), "Y  %04.3f", y);
-        lv_label_set_text(lbl_mpos_y, buf);
+        if (y <= -9999.0f) {
+            lv_label_set_text(lbl_mpos_y, "Y  ----.---");
+        } else {
+            snprintf(buf, sizeof(buf), "Y  %04.3f", y);
+            lv_label_set_text(lbl_mpos_y, buf);
+        }
         last_mpos_y = y;
     }
     
     if (lbl_mpos_z && z != last_mpos_z) {
-        snprintf(buf, sizeof(buf), "Z  %04.3f", z);
-        lv_label_set_text(lbl_mpos_z, buf);
+        if (z <= -9999.0f) {
+            lv_label_set_text(lbl_mpos_z, "Z  ----.---");
+        } else {
+            snprintf(buf, sizeof(buf), "Z  %04.3f", z);
+            lv_label_set_text(lbl_mpos_z, buf);
+        }
         last_mpos_z = z;
     }
 }
@@ -533,14 +561,22 @@ void UITabStatus::updateFeedRate(float rate, float override_pct) {
     char buf[32];
     
     if (lbl_feed_value && rate != last_feed_rate) {
-        snprintf(buf, sizeof(buf), "%.0f", rate);  // Just the number, units on separate line
-        lv_label_set_text(lbl_feed_value, buf);
+        if (rate <= -9999.0f) {
+            lv_label_set_text(lbl_feed_value, "---");
+        } else {
+            snprintf(buf, sizeof(buf), "%.0f", rate);
+            lv_label_set_text(lbl_feed_value, buf);
+        }
         last_feed_rate = rate;
     }
     
     if (lbl_feed_override && override_pct != last_feed_override) {
-        snprintf(buf, sizeof(buf), "%.0f%%", override_pct);
-        lv_label_set_text(lbl_feed_override, buf);
+        if (override_pct <= -9999.0f) {
+            lv_label_set_text(lbl_feed_override, "---%");
+        } else {
+            snprintf(buf, sizeof(buf), "%.0f%%", override_pct);
+            lv_label_set_text(lbl_feed_override, buf);
+        }
         last_feed_override = override_pct;
     }
 }
@@ -553,8 +589,12 @@ void UITabStatus::updateRapidOverride(float override_pct) {
     
     if (lbl_rapid_override) {
         char buf[32];
-        snprintf(buf, sizeof(buf), "%.0f%%", override_pct);
-        lv_label_set_text(lbl_rapid_override, buf);
+        if (override_pct <= -9999.0f) {
+            lv_label_set_text(lbl_rapid_override, "---%");
+        } else {
+            snprintf(buf, sizeof(buf), "%.0f%%", override_pct);
+            lv_label_set_text(lbl_rapid_override, buf);
+        }
         last_rapid_override = override_pct;
     }
 }
@@ -568,14 +608,22 @@ void UITabStatus::updateSpindle(float speed, float override_pct) {
     char buf[32];
     
     if (lbl_spindle_value && speed != last_spindle_speed) {
-        snprintf(buf, sizeof(buf), "%.0f", speed);  // Just the number, units on separate line
-        lv_label_set_text(lbl_spindle_value, buf);
+        if (speed <= -9999.0f) {
+            lv_label_set_text(lbl_spindle_value, "---");
+        } else {
+            snprintf(buf, sizeof(buf), "%.0f", speed);
+            lv_label_set_text(lbl_spindle_value, buf);
+        }
         last_spindle_speed = speed;
     }
     
     if (lbl_spindle_override && override_pct != last_spindle_override) {
-        snprintf(buf, sizeof(buf), "%.0f%%", override_pct);
-        lv_label_set_text(lbl_spindle_override, buf);
+        if (override_pct <= -9999.0f) {
+            lv_label_set_text(lbl_spindle_override, "---%");
+        } else {
+            snprintf(buf, sizeof(buf), "%.0f%%", override_pct);
+            lv_label_set_text(lbl_spindle_override, buf);
+        }
         last_spindle_override = override_pct;
     }
 }
@@ -642,31 +690,41 @@ void UITabStatus::updateFileProgress(bool is_printing, float percent, const char
                                      uint32_t elapsed_ms) {
     if (!lbl_file_progress_container) return;
     
+    // Convert elapsed_ms to seconds for coarse comparison (update every second minimum)
+    uint32_t elapsed_seconds = elapsed_ms / 1000;
+    
     if (is_printing && percent > 0) {
-        // Show the file progress container
-        lv_obj_clear_flag(lbl_file_progress_container, LV_OBJ_FLAG_HIDDEN);
-        
-        // Update filename
-        if (lbl_filename && filename) {
-            lv_label_set_text(lbl_filename, filename);
+        // Show the file progress container if it was hidden
+        if (!last_is_printing) {
+            lv_obj_clear_flag(lbl_file_progress_container, LV_OBJ_FLAG_HIDDEN);
+            last_is_printing = true;
         }
         
-        // Update progress bar
-        if (bar_progress) {
+        // Update filename only if changed
+        if (lbl_filename && filename && strcmp(filename, last_filename) != 0) {
+            lv_label_set_text(lbl_filename, filename);
+            strncpy(last_filename, filename, sizeof(last_filename) - 1);
+            last_filename[sizeof(last_filename) - 1] = '\0';
+        }
+        
+        // Update progress bar only if percent changed (integer comparison)
+        if (bar_progress && (int)percent != (int)last_file_percent) {
             lv_bar_set_value(bar_progress, (int)percent, LV_ANIM_OFF);
         }
         
-        // Update percentage label (1 decimal place)
-        if (lbl_percent) {
+        // Update percentage label only if changed (0.1% resolution)
+        if (lbl_percent && fabsf(percent - last_file_percent) >= 0.1f) {
             char percent_buf[8];
             snprintf(percent_buf, sizeof(percent_buf), "%.1f%%", percent);
             lv_label_set_text(lbl_percent, percent_buf);
+            last_file_percent = percent;
         }
         
-        // Calculate and display elapsed time (just the time value, no label)
-        if (lbl_elapsed_time) {
-            uint32_t seconds = elapsed_ms / 1000;
-            uint32_t minutes = seconds / 60;
+        // Calculate and display elapsed time only if seconds changed
+        if (lbl_elapsed_time && elapsed_seconds != last_elapsed_seconds) {
+            last_elapsed_seconds = elapsed_seconds;
+            
+            uint32_t minutes = elapsed_seconds / 60;
             uint32_t hours = minutes / 60;
             
             char time_buf[16];
@@ -676,7 +734,7 @@ void UITabStatus::updateFileProgress(bool is_printing, float percent, const char
                     lv_label_set_text(lbl_elapsed_unit, "hr:min");
                 }
             } else {
-                snprintf(time_buf, sizeof(time_buf), "%02lu:%02lu", minutes, seconds % 60);
+                snprintf(time_buf, sizeof(time_buf), "%02lu:%02lu", minutes, elapsed_seconds % 60);
                 if (lbl_elapsed_unit) {
                     lv_label_set_text(lbl_elapsed_unit, "min:sec");
                 }
@@ -717,7 +775,13 @@ void UITabStatus::updateFileProgress(bool is_printing, float percent, const char
             }
         }
     } else {
-        // Hide the file progress container when not printing
-        lv_obj_add_flag(lbl_file_progress_container, LV_OBJ_FLAG_HIDDEN);
+        // Hide the file progress container if it was showing
+        if (last_is_printing) {
+            lv_obj_add_flag(lbl_file_progress_container, LV_OBJ_FLAG_HIDDEN);
+            last_is_printing = false;
+            last_file_percent = -1.0f;
+            last_filename[0] = '\0';
+            last_elapsed_seconds = 0;
+        }
     }
 }
