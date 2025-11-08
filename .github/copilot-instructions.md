@@ -1,23 +1,57 @@
 # FluidTouch - AI Coding Agent Instructions
 
 ## Project Overview
-FluidTouch is an ESP32-S3 embedded touchscreen CNC controller for FluidNC machines, running on the Elecrow CrowPanel 7" Basic display (800x480). The project uses PlatformIO, LVGL 9.4 for UI, and LovyanGFX for hardware-accelerated display rendering.
+FluidTouch is an ESP32-S3 embedded touchscreen CNC controller for FluidNC machines, running on Elecrow CrowPanel 7" displays (800x480). The project uses PlatformIO, LVGL 9.4 for UI, and LovyanGFX for hardware-accelerated display rendering.
 
-**Hardware**: Elecrow CrowPanel ESP32 7" HMI Display (Basic Version)
+**Supported Hardware**: Elecrow CrowPanel ESP32 7" HMI Display (Basic and Advance variants)
+
+### Basic Version
 - Product: https://www.elecrow.com/esp32-display-7-inch-hmi-display-rgb-tft-lcd-touch-screen-support-lvgl.html
-- Display: 800x480 RGB TFT LCD with GT911 capacitive touch
+- Display: 800x480 TN RGB TFT LCD with GT911 capacitive touch
 - MCU: ESP32-S3-WROOM-1-N4R8 (4MB Flash + 8MB Octal PSRAM)
+- Backlight: PWM on GPIO2
+- Touch I2C: SDA=19, SCL=20, RST=38
 
-**Status**: Active development - core architecture complete, features in progress.
+### Advance Version  
+- Product: https://www.elecrow.com/crowpanel-advance-7-0-hmi-esp32-ai-display-800x480-artificial-intelligent-ips-touch-screen-support-meshtastic-and-arduino-lvgl-micropython.html
+- Display: 800x480 IPS RGB LCD with GT911 capacitive touch
+- MCU: ESP32-S3-WROOM-1-N16R8 (16MB Flash + 8MB Octal PSRAM)
+- Backlight: I2C controlled via STC8H1K28 microcontroller (address 0x30)
+- Touch I2C: SDA=15, SCL=16 (RST handled by STC8H1K28 via I2C)
+- **Key Differences**: Completely different RGB pin mapping, different sync pins, I2C backlight control
+
+**Build Environments**: 
+- `platformio run -e elecrow-crowpanel-7-basic` (4MB flash, PWM backlight)
+- `platformio run -e elecrow-crowpanel-7-advance` (16MB flash, I2C backlight)
+
+**Status**: Active development - dual hardware support complete, features in progress.
 
 ## Architecture & Design Patterns
 
-### Hardware Platform (ESP32-S3-WROOM-1-N4R8)
-- **Flash**: 4MB DIO mode
-- **PSRAM**: 8MB Octal PSRAM (`dio_opi` memory type)
+### Hardware Platform
+- **Flash**: 4MB (Basic) or 16MB (Advance), DIO/QIO mode
+- **PSRAM**: 8MB Octal PSRAM (`dio_opi` or `qio_opi` memory type)
 - **Display**: 800x480 RGB parallel interface (16-bit RGB565)
-- **Touch**: GT911 I2C controller (address 0x5D, pins SDA=19, SCL=20, RST=38)
+- **Touch**: GT911 I2C controller (address 0x5D)
 - **Critical**: ALL large buffers MUST use `heap_caps_malloc(size, MALLOC_CAP_SPIRAM)` to allocate in PSRAM, never regular heap
+
+### Dual Hardware Support Pattern
+The project uses conditional compilation (`#ifdef HARDWARE_ADVANCE`) to support both hardware variants:
+
+1. **Display Driver** (`src/core/display_driver.cpp`):
+   - Basic: GPIO pins 15,7,6,5,4 (B), 9,46,3,8,16,1 (G), 14,21,47,48,45 (R), sync pins 41,40,39,0
+   - Advance: GPIO pins 21,47,48,45,38 (B), 9,10,11,12,13,14 (G), 7,17,18,3,46 (R), sync pins 42,41,40,39
+   - Timing: Basic 10MHz / Advance 14MHz (reduced from 18MHz for stability)
+   
+2. **Backlight Control**:
+   - Basic: Direct PWM on GPIO2 via `ledcWrite()`
+   - Advance: I2C commands to STC8H1K28 (wake 0x19, config 0x10/0x18, brightness 0x00-0xF5)
+
+3. **Touch Controller**:
+   - Both use GT911 at 0x5D, but different I2C pins
+   - Basic: Direct GPIO reset on pin 38
+   - Advance: STC8H1K28 manages reset via I2C (no GPIO manipulation)
+   - LovyanGFX handles GT911 initialization for both variants
 
 ### Module Organization Pattern
 The codebase follows a **strict modular pattern** with clear separation:
@@ -333,6 +367,8 @@ All other hardcoded values live in `include/config.h`:
 
 ## Common Pitfalls
 
+## Common Pitfalls
+
 1. **Memory allocation**: Never use `malloc()` for buffers >10KB - always use `heap_caps_malloc(..., MALLOC_CAP_SPIRAM)`
 2. **LVGL tick**: Forgetting `lv_tick_inc()` breaks timers and input devices - must call every loop
 3. **File structure**: UI files MUST be in `ui/` subdirectory (both `include/ui/` and `src/ui/`)
@@ -350,7 +386,9 @@ All other hardcoded values live in `include/config.h`:
 15. **Terminal callback**: Terminal updates can be enabled/disabled by commenting/uncommenting the `terminalCallback()` call in `fluidnc_client.cpp` WebSocket event handler
 16. **State popup buttons**: Resume and Clear Alarm buttons send commands but do NOT manually close popups - popups auto-close when FluidNC state actually changes, providing visual feedback that command was sent
 17. **Connection error handling**: Only show disconnect error dialogs if `everConnectedSuccessfully` flag is true - prevents false alarms during initial connection handshake when connection attempts are still in progress
-18. **State popup buttons**: Resume and Clear Alarm buttons send commands but do NOT manually close popups - popups auto-close when FluidNC state actually changes, providing visual feedback that command was sent
+18. **Hardware-specific builds**: Always use correct environment (`-e elecrow-crowpanel-7-basic` or `-e elecrow-crowpanel-7-advance`) - RGB pin mappings are completely different and will not work if mixed
+19. **Advance display timing**: 14MHz pixel clock provides best stability for Advance hardware - 18MHz (from Elecrow example) may cause glitching depending on signal integrity
+20. **STC8H1K28 control**: Advance backlight and touch reset are controlled via I2C to STC8H1K28 at 0x30 - no direct GPIO manipulation needed
 
 ## External Dependencies
 

@@ -1,5 +1,5 @@
 {
-  "name": "FluidTouch",
+  "name": "FluidTouch (Basic)",
   "version": "0.9.1",
   "home_assistant_domain": "esphome",
   "new_install_prompt_erase": true,
@@ -9,19 +9,19 @@
       "chipFamily": "ESP32-S3",
       "parts": [
         {
-          "path": "firmware/bootloader.bin",
+          "path": "firmware/basic/bootloader.bin",
           "offset": 0
         },
         {
-          "path": "firmware/partitions.bin",
+          "path": "firmware/basic/partitions.bin",
           "offset": 32768
         },
         {
-          "path": "firmware/boot_app0.bin",
+          "path": "firmware/basic/boot_app0.bin",
           "offset": 57344
         },
         {
-          "path": "firmware/firmware.bin",
+          "path": "firmware/basic/firmware.bin",
           "offset": 65536
         }
       ]
