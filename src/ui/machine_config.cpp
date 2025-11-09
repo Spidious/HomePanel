@@ -7,10 +7,14 @@ void MachineConfigManager::loadMachines(MachineConfig machines[MAX_MACHINES]) {
     Preferences prefs;
     prefs.begin(PREFS_NAMESPACE, true); // Read-only
     
+    Serial.println("MachineConfigManager: Loading machines from NVS...");
+    
     for (int i = 0; i < MAX_MACHINES; i++) {
         String prefix = "m" + String(i) + "_";
         
         machines[i].is_configured = prefs.getBool((prefix + "cfg").c_str(), false);
+        
+        Serial.printf("  Slot %d: is_configured = %d\n", i, machines[i].is_configured);
         
         if (machines[i].is_configured) {
             prefs.getString((prefix + "name").c_str(), machines[i].name, sizeof(machines[i].name));
@@ -19,6 +23,8 @@ void MachineConfigManager::loadMachines(MachineConfig machines[MAX_MACHINES]) {
             prefs.getString((prefix + "pwd").c_str(), machines[i].password, sizeof(machines[i].password));
             prefs.getString((prefix + "url").c_str(), machines[i].fluidnc_url, sizeof(machines[i].fluidnc_url));
             machines[i].websocket_port = prefs.getUShort((prefix + "port").c_str(), 81);
+            
+            Serial.printf("    Name: %s, URL: %s:%d\n", machines[i].name, machines[i].fluidnc_url, machines[i].websocket_port);
             
             // Load jog settings (with defaults if not present)
             machines[i].jog_xy_step = prefs.getFloat((prefix + "jxy_st").c_str(), 10.0f);
@@ -37,6 +43,7 @@ void MachineConfigManager::loadMachines(MachineConfig machines[MAX_MACHINES]) {
     }
     
     prefs.end();
+    Serial.println("MachineConfigManager: Load complete");
 }
 
 void MachineConfigManager::saveMachines(const MachineConfig machines[MAX_MACHINES]) {

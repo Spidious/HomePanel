@@ -25,6 +25,7 @@ public:
     // Dialog functions
     static void showMachineSelectConfirmDialog();
     static void hideMachineSelectConfirmDialog();
+    static void showPowerOffConfirmDialog();
     static void showConnectingPopup(const char *machine_name, const char *ssid);
     static void hideConnectingPopup();
     static void showConnectionErrorDialog(const char *title, const char *message);
@@ -41,6 +42,7 @@ public:
     // Getters for shared objects
     static lv_obj_t* getStatusBar() { return status_bar; }
     static lv_display_t* getDisplay() { return display; }
+    static DisplayDriver* getDisplayDriver() { return display_driver; }
     
 private:
     static lv_display_t *display;

@@ -17,6 +17,7 @@ private:
     // Edit mode state
     static bool edit_mode;
     static lv_obj_t *edit_mode_button;
+    static lv_obj_t *list_container;  // Reference to machine list container
     
     // Machine button widgets
     static lv_obj_t *machine_buttons[MAX_MACHINES];

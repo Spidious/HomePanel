@@ -4,7 +4,7 @@
 #include <Arduino.h>
 
 // Version
-#define FLUIDTOUCH_VERSION "0.9.2"
+#define FLUIDTOUCH_VERSION "0.9.3"
 
 // Display settings
 #define SCREEN_WIDTH  800
@@ -45,8 +45,9 @@
 // Timing constants
 #define SPLASH_DURATION_MS 2500
 
-// Preferences namespace
-#define PREFS_NAMESPACE "fluidtouch"
+// Preferences namespaces
+#define PREFS_NAMESPACE "fluidtouch"        // Machine configurations
+#define PREFS_SYSTEM_NAMESPACE "ft_system"  // System flags (clean_shutdown, etc.)
 
 // Screenshot server configuration
 #define ENABLE_SCREENSHOT_SERVER true

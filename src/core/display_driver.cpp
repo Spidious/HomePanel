@@ -283,3 +283,39 @@ void DisplayDriver::my_disp_flush(lv_display_t *disp, const lv_area_t *area, uin
     
     lv_display_flush_ready(disp);
 }
+
+// Backlight control methods
+void DisplayDriver::setBacklight(uint8_t brightness) {
+#ifdef BACKLIGHT_PWM
+    // Basic: PWM backlight on GPIO2
+    ledcWrite(1, brightness);
+#elif defined(BACKLIGHT_I2C)
+    // Advance: I2C backlight controller (STC8H1K28 at address 0x30)
+    // Brightness: 0 = brightest, 245 = off
+    uint8_t i2c_value = 245 - ((brightness * 245) / 255);
+    Wire.beginTransmission(0x30);
+    Wire.write(i2c_value);
+    Wire.endTransmission();
+#endif
+    Serial.printf("Backlight set to: %d\n", brightness);
+}
+
+void DisplayDriver::setBacklightOn() {
+    setBacklight(255);
+}
+
+void DisplayDriver::setBacklightOff() {
+#ifdef BACKLIGHT_PWM
+    // Basic: PWM backlight on GPIO2
+    ledcWrite(1, 0);
+    Serial.println("Backlight OFF (PWM)");
+#elif defined(BACKLIGHT_I2C)
+    // Advance: I2C backlight controller (STC8H1K28 at address 0x30)
+    // Send 0xF5 (245) for off
+    Wire.beginTransmission(0x30);
+    Wire.write(0xF5);
+    Wire.endTransmission();
+    Serial.println("Backlight OFF (I2C)");
+#endif
+}
+

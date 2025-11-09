@@ -146,7 +146,7 @@ void UITabMacros::create(lv_obj_t *tab) {
 
     // Empty message label (shown when no macros configured)
     lbl_empty_message = lv_label_create(macro_container);
-    lv_label_set_text(lbl_empty_message, "No macros configured.\n\nClick " LV_SYMBOL_EDIT " Edit to add macros.");
+    lv_label_set_text(lbl_empty_message, "No macros configured.\n\nClick " LV_SYMBOL_EDIT " Edit to add macros.\n\nMacro files must be on machine SD card in /fluidtouch/macros directory.");
     lv_obj_set_style_text_font(lbl_empty_message, &lv_font_montserrat_24, 0);
     lv_obj_set_style_text_color(lbl_empty_message, UITheme::TEXT_LIGHT, 0);
     lv_obj_set_style_text_align(lbl_empty_message, LV_TEXT_ALIGN_CENTER, 0);
@@ -379,7 +379,7 @@ void UITabMacros::refreshMacroList() {
         
         // Recreate empty message label since we cleared the container
         lbl_empty_message = lv_label_create(macro_container);
-        lv_label_set_text(lbl_empty_message, "No macros configured.\n\nClick " LV_SYMBOL_EDIT " Edit to add macros.");
+        lv_label_set_text(lbl_empty_message, "No macros configured.\n\nClick " LV_SYMBOL_EDIT " Edit to add macros.\n\nMacro files must be on machine SD card in /fluidtouch/macros directory.");
         lv_obj_set_style_text_font(lbl_empty_message, &lv_font_montserrat_24, 0);
         lv_obj_set_style_text_color(lbl_empty_message, UITheme::TEXT_LIGHT, 0);
         lv_obj_set_style_text_align(lbl_empty_message, LV_TEXT_ALIGN_CENTER, 0);

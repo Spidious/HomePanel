@@ -5,10 +5,12 @@
 #include "ui/ui_machine_select.h"
 #include "network/fluidnc_client.h"
 #include "core/display_driver.h"
+#include "core/power_manager.h"
 #include "network/screenshot_server.h"
 #include "config.h"
 #include <Preferences.h>
 #include <WiFi.h>
+#include <esp_sleep.h>
 
 // Static member initialization
 lv_display_t *UICommon::display = nullptr;
@@ -128,6 +130,49 @@ static void on_machine_select_confirm(lv_event_t *e) {
     
     // Restart the ESP32
     ESP.restart();
+}
+
+// Event handler for power off
+static void on_power_off_confirm(lv_event_t *e) {
+    Serial.println("UICommon: Powering off device...");
+    UICommon::hideMachineSelectConfirmDialog();
+    
+    // Save clean shutdown flag in separate namespace to avoid corrupting machine configs
+    Preferences prefs;
+    prefs.begin(PREFS_SYSTEM_NAMESPACE, false);
+    prefs.putBool("clean_shutdown", true);
+    prefs.end();
+    
+    // Show power off message
+    lv_obj_t *poweroff_label = lv_label_create(lv_screen_active());
+    lv_label_set_text(poweroff_label, "Powering off...");
+    lv_obj_set_style_text_font(poweroff_label, &lv_font_montserrat_32, 0);
+    lv_obj_set_style_text_color(poweroff_label, UITheme::UI_WARNING, 0);
+    lv_obj_center(poweroff_label);
+    
+    // Force display update
+    lv_timer_handler();
+    delay(1000);
+    
+    // Disconnect from FluidNC gracefully
+    FluidNCClient::disconnect();
+    delay(100);
+    
+    // Turn off backlight
+    DisplayDriver *display_driver = UICommon::getDisplayDriver();
+    if (display_driver) {
+        display_driver->setBacklightOff();
+    }
+    delay(100);
+    
+    // Disconnect WiFi cleanly
+    WiFi.disconnect(true);
+    WiFi.mode(WIFI_OFF);
+    delay(100);
+    
+    // Enter deep sleep (only reset button can wake)
+    Serial.println("Entering deep sleep...");
+    esp_deep_sleep_start();
 }
 
 // Event handler for canceling machine selection change
@@ -564,50 +609,79 @@ void UICommon::showMachineSelectConfirmDialog() {
     lv_obj_set_style_border_width(machine_select_dialog, 0, 0);
     lv_obj_clear_flag(machine_select_dialog, LV_OBJ_FLAG_SCROLLABLE);
     
-    // Dialog content box
+    // Dialog content box (same size as HOLD/ALARM popups)
     lv_obj_t *content = lv_obj_create(machine_select_dialog);
-    lv_obj_set_size(content, 500, 220);
+    lv_obj_set_size(content, 600, 300);
     lv_obj_center(content);
     lv_obj_set_style_bg_color(content, UITheme::BG_MEDIUM, 0);
     lv_obj_set_style_border_color(content, UITheme::ACCENT_PRIMARY, 0);
     lv_obj_set_style_border_width(content, 3, 0);
-    lv_obj_set_flex_flow(content, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(content, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_all(content, 20, 0);
-    lv_obj_set_style_pad_gap(content, 15, 0);
     lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
     
-    // Icon and title
+    // Title (positioned near top)
     lv_obj_t *title = lv_label_create(content);
-    lv_label_set_text(title, LV_SYMBOL_SETTINGS " Restart Controller?");
+    lv_label_set_text(title, LV_SYMBOL_SETTINGS " System Options");
     lv_obj_set_style_text_font(title, &lv_font_montserrat_22, 0);
     lv_obj_set_style_text_color(title, UITheme::ACCENT_PRIMARY, 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 0);
     
-    // Message line 1
-    lv_obj_t *msg1_label = lv_label_create(content);
-    lv_label_set_text(msg1_label, "This will disconnect and restart the");
-    lv_obj_set_style_text_font(msg1_label, &lv_font_montserrat_18, 0);
-    lv_obj_set_style_text_color(msg1_label, UITheme::TEXT_LIGHT, 0);
+    // Check if power management is enabled
+    bool power_mgmt_enabled = PowerManager::isEnabled();
     
-    // Message line 2
-    lv_obj_t *msg2_label = lv_label_create(content);
-    lv_label_set_text(msg2_label, "controller. Continue?");
-    lv_obj_set_style_text_font(msg2_label, &lv_font_montserrat_18, 0);
-    lv_obj_set_style_text_color(msg2_label, UITheme::TEXT_LIGHT, 0);
+    // Message (centered vertically in available space)
+    lv_obj_t *msg_label = lv_label_create(content);
+    if (power_mgmt_enabled) {
+        lv_label_set_text(msg_label, "Restart to change machines,\nor power off for battery operation.\n\nNote: Press reset button to power on\nafter using power off.");
+    } else {
+        lv_label_set_text(msg_label, "Restart to change machines.");
+    }
+    lv_obj_set_style_text_font(msg_label, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(msg_label, UITheme::TEXT_LIGHT, 0);
+    lv_obj_set_style_text_align(msg_label, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_long_mode(msg_label, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(msg_label, 560);
+    lv_obj_align(msg_label, LV_ALIGN_TOP_MID, 0, 50);
     
-    // Button container
+    // Button container (positioned at bottom)
     lv_obj_t *btn_container = lv_obj_create(content);
-    lv_obj_set_size(btn_container, LV_PCT(100), LV_SIZE_CONTENT);
-    lv_obj_set_flex_flow(btn_container, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(btn_container, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_size(btn_container, 560, 60);
     lv_obj_set_style_bg_opa(btn_container, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(btn_container, 0, 0);
     lv_obj_set_style_pad_all(btn_container, 0, 0);
+    lv_obj_set_style_pad_gap(btn_container, 10, 0);
+    lv_obj_set_flex_flow(btn_container, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(btn_container, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_align(btn_container, LV_ALIGN_BOTTOM_MID, 0, 0);
     lv_obj_clear_flag(btn_container, LV_OBJ_FLAG_SCROLLABLE);
     
-    // Cancel button
+    // Restart button (adjust size based on number of buttons)
+    lv_obj_t *restart_btn = lv_btn_create(btn_container);
+    lv_obj_set_size(restart_btn, power_mgmt_enabled ? 165 : 250, 50);
+    lv_obj_set_style_bg_color(restart_btn, UITheme::ACCENT_PRIMARY, 0);
+    lv_obj_add_event_cb(restart_btn, on_machine_select_confirm, LV_EVENT_CLICKED, nullptr);
+    
+    lv_obj_t *restart_label = lv_label_create(restart_btn);
+    lv_label_set_text(restart_label, LV_SYMBOL_REFRESH " Restart");
+    lv_obj_set_style_text_font(restart_label, &lv_font_montserrat_18, 0);
+    lv_obj_center(restart_label);
+    
+    // Power off button (only show if power management is enabled)
+    if (power_mgmt_enabled) {
+        lv_obj_t *poweroff_btn = lv_btn_create(btn_container);
+        lv_obj_set_size(poweroff_btn, 165, 50);
+        lv_obj_set_style_bg_color(poweroff_btn, lv_color_make(180, 60, 0), 0);  // Orange/red for power off
+        lv_obj_add_event_cb(poweroff_btn, on_power_off_confirm, LV_EVENT_CLICKED, nullptr);
+        
+        lv_obj_t *poweroff_label = lv_label_create(poweroff_btn);
+        lv_label_set_text(poweroff_label, LV_SYMBOL_POWER " Power Off");
+        lv_obj_set_style_text_font(poweroff_label, &lv_font_montserrat_18, 0);
+        lv_obj_center(poweroff_label);
+    }
+    
+    // Cancel button (adjust size based on number of buttons)
     lv_obj_t *cancel_btn = lv_btn_create(btn_container);
-    lv_obj_set_size(cancel_btn, 180, 50);
+    lv_obj_set_size(cancel_btn, power_mgmt_enabled ? 165 : 250, 50);
     lv_obj_set_style_bg_color(cancel_btn, UITheme::BG_BUTTON, 0);
     lv_obj_add_event_cb(cancel_btn, on_machine_select_cancel, LV_EVENT_CLICKED, nullptr);
     
@@ -615,17 +689,82 @@ void UICommon::showMachineSelectConfirmDialog() {
     lv_label_set_text(cancel_label, "Cancel");
     lv_obj_set_style_text_font(cancel_label, &lv_font_montserrat_18, 0);
     lv_obj_center(cancel_label);
+}
+
+void UICommon::showPowerOffConfirmDialog() {
+    // Create modal background
+    lv_obj_t *dialog = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(dialog, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_style_bg_color(dialog, lv_color_make(0, 0, 0), 0);
+    lv_obj_set_style_bg_opa(dialog, LV_OPA_70, 0);
+    lv_obj_set_style_border_width(dialog, 0, 0);
+    lv_obj_clear_flag(dialog, LV_OBJ_FLAG_SCROLLABLE);
     
-    // Confirm button
-    lv_obj_t *confirm_btn = lv_btn_create(btn_container);
-    lv_obj_set_size(confirm_btn, 180, 50);
-    lv_obj_set_style_bg_color(confirm_btn, UITheme::ACCENT_PRIMARY, 0);
-    lv_obj_add_event_cb(confirm_btn, on_machine_select_confirm, LV_EVENT_CLICKED, nullptr);
+    // Dialog content box
+    lv_obj_t *content = lv_obj_create(dialog);
+    lv_obj_set_size(content, 520, 220);
+    lv_obj_center(content);
+    lv_obj_set_style_bg_color(content, UITheme::BG_MEDIUM, 0);
+    lv_obj_set_style_border_color(content, lv_color_make(180, 60, 0), 0);  // Orange
+    lv_obj_set_style_border_width(content, 3, 0);
+    lv_obj_set_flex_flow(content, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(content, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_all(content, 20, 0);
+    lv_obj_set_style_pad_gap(content, 20, 0);
+    lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
     
-    lv_obj_t *confirm_label = lv_label_create(confirm_btn);
-    lv_label_set_text(confirm_label, LV_SYMBOL_POWER " Restart");
-    lv_obj_set_style_text_font(confirm_label, &lv_font_montserrat_18, 0);
-    lv_obj_center(confirm_label);
+    // Icon and title
+    lv_obj_t *title = lv_label_create(content);
+    lv_label_set_text(title, LV_SYMBOL_POWER " Power Off");
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_color(title, lv_color_make(180, 60, 0), 0);  // Orange
+    
+    // Message
+    lv_obj_t *msg_label = lv_label_create(content);
+    lv_label_set_text(msg_label, "Power off the controller?\nPress reset button to wake.");
+    lv_obj_set_style_text_font(msg_label, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_color(msg_label, UITheme::TEXT_LIGHT, 0);
+    lv_obj_set_style_text_align(msg_label, LV_TEXT_ALIGN_CENTER, 0);
+    
+    // Button container (horizontal)
+    lv_obj_t *btn_container = lv_obj_create(content);
+    lv_obj_set_size(btn_container, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(btn_container, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(btn_container, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_bg_opa(btn_container, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(btn_container, 0, 0);
+    lv_obj_set_style_pad_all(btn_container, 0, 0);
+    lv_obj_set_style_pad_gap(btn_container, 15, 0);
+    lv_obj_clear_flag(btn_container, LV_OBJ_FLAG_SCROLLABLE);
+    
+    // Power Off button
+    lv_obj_t *poweroff_btn = lv_btn_create(btn_container);
+    lv_obj_set_size(poweroff_btn, 200, 50);
+    lv_obj_set_style_bg_color(poweroff_btn, lv_color_make(180, 60, 0), 0);  // Orange
+    lv_obj_add_event_cb(poweroff_btn, [](lv_event_t *e) {
+        lv_obj_t *dialog = (lv_obj_t*)lv_event_get_user_data(e);
+        lv_obj_del(dialog);
+        on_power_off_confirm(e);
+    }, LV_EVENT_CLICKED, dialog);
+    
+    lv_obj_t *poweroff_label = lv_label_create(poweroff_btn);
+    lv_label_set_text(poweroff_label, LV_SYMBOL_POWER " Power Off");
+    lv_obj_set_style_text_font(poweroff_label, &lv_font_montserrat_18, 0);
+    lv_obj_center(poweroff_label);
+    
+    // Cancel button
+    lv_obj_t *cancel_btn = lv_btn_create(btn_container);
+    lv_obj_set_size(cancel_btn, 200, 50);
+    lv_obj_set_style_bg_color(cancel_btn, UITheme::BG_BUTTON, 0);
+    lv_obj_add_event_cb(cancel_btn, [](lv_event_t *e) {
+        lv_obj_t *dialog = (lv_obj_t*)lv_event_get_user_data(e);
+        lv_obj_del(dialog);
+    }, LV_EVENT_CLICKED, dialog);
+    
+    lv_obj_t *cancel_label = lv_label_create(cancel_btn);
+    lv_label_set_text(cancel_label, "Cancel");
+    lv_obj_set_style_text_font(cancel_label, &lv_font_montserrat_18, 0);
+    lv_obj_center(cancel_label);
 }
 
 void UICommon::hideMachineSelectConfirmDialog() {
@@ -821,24 +960,13 @@ void UICommon::showConnectionErrorDialog(const char *title, const char *message)
     lv_obj_t *btn_container = lv_obj_create(content);
     lv_obj_set_size(btn_container, LV_PCT(100), LV_SIZE_CONTENT);
     lv_obj_set_flex_flow(btn_container, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(btn_container, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_flex_align(btn_container, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_bg_opa(btn_container, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(btn_container, 0, 0);
     lv_obj_set_style_pad_all(btn_container, 0, 0);
     lv_obj_clear_flag(btn_container, LV_OBJ_FLAG_SCROLLABLE);
     
-    // Close button
-    lv_obj_t *close_btn = lv_btn_create(btn_container);
-    lv_obj_set_size(close_btn, 150, 50);
-    lv_obj_set_style_bg_color(close_btn, UITheme::BG_BUTTON, 0);
-    lv_obj_add_event_cb(close_btn, on_connection_error_close, LV_EVENT_CLICKED, nullptr);
-    
-    lv_obj_t *close_label = lv_label_create(close_btn);
-    lv_label_set_text(close_label, "Close");
-    lv_obj_set_style_text_font(close_label, &lv_font_montserrat_18, 0);
-    lv_obj_center(close_label);
-    
-    // Connect button
+    // Connect button (left)
     lv_obj_t *connect_btn = lv_btn_create(btn_container);
     lv_obj_set_size(connect_btn, 150, 50);
     lv_obj_set_style_bg_color(connect_btn, UITheme::BTN_CONNECT, 0);
@@ -849,7 +977,7 @@ void UICommon::showConnectionErrorDialog(const char *title, const char *message)
     lv_obj_set_style_text_font(connect_label, &lv_font_montserrat_16, 0);
     lv_obj_center(connect_label);
     
-    // Restart button
+    // Restart button (center)
     lv_obj_t *restart_btn = lv_btn_create(btn_container);
     lv_obj_set_size(restart_btn, 150, 50);
     lv_obj_set_style_bg_color(restart_btn, UITheme::ACCENT_PRIMARY, 0);
@@ -859,6 +987,17 @@ void UICommon::showConnectionErrorDialog(const char *title, const char *message)
     lv_label_set_text(restart_label, LV_SYMBOL_POWER " Restart");
     lv_obj_set_style_text_font(restart_label, &lv_font_montserrat_16, 0);
     lv_obj_center(restart_label);
+    
+    // Close button (right)
+    lv_obj_t *close_btn = lv_btn_create(btn_container);
+    lv_obj_set_size(close_btn, 150, 50);
+    lv_obj_set_style_bg_color(close_btn, UITheme::BG_BUTTON, 0);
+    lv_obj_add_event_cb(close_btn, on_connection_error_close, LV_EVENT_CLICKED, nullptr);
+    
+    lv_obj_t *close_label = lv_label_create(close_btn);
+    lv_label_set_text(close_label, "Close");
+    lv_obj_set_style_text_font(close_label, &lv_font_montserrat_18, 0);
+    lv_obj_center(close_label);
     
     Serial.printf("UICommon: Connection error dialog shown - %s: %s\n", title, message);
 }
@@ -959,6 +1098,19 @@ void UICommon::showHoldPopup(const char *message) {
     lv_obj_set_flex_align(btn_container, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_align(btn_container, LV_ALIGN_BOTTOM_MID, 0, 0);
     
+    // Resume button
+    lv_obj_t *resume_btn = lv_btn_create(btn_container);
+    lv_obj_set_size(resume_btn, 250, 50);
+    lv_obj_set_style_bg_color(resume_btn, UITheme::BTN_PLAY, 0);
+    lv_obj_add_event_cb(resume_btn, [](lv_event_t *e) {
+        FluidNCClient::sendCommand("~"); // Send cycle start (resume)
+    }, LV_EVENT_CLICKED, nullptr);
+    
+    lv_obj_t *resume_label = lv_label_create(resume_btn);
+    lv_label_set_text(resume_label, LV_SYMBOL_PLAY " Resume");
+    lv_obj_set_style_text_font(resume_label, &lv_font_montserrat_18, 0);
+    lv_obj_center(resume_label);
+    
     // Close button
     lv_obj_t *close_btn = lv_btn_create(btn_container);
     lv_obj_set_size(close_btn, 250, 50);
@@ -972,19 +1124,6 @@ void UICommon::showHoldPopup(const char *message) {
     lv_label_set_text(close_label, LV_SYMBOL_CLOSE " Close");
     lv_obj_set_style_text_font(close_label, &lv_font_montserrat_18, 0);
     lv_obj_center(close_label);
-    
-    // Resume button
-    lv_obj_t *resume_btn = lv_btn_create(btn_container);
-    lv_obj_set_size(resume_btn, 250, 50);
-    lv_obj_set_style_bg_color(resume_btn, UITheme::BTN_PLAY, 0);
-    lv_obj_add_event_cb(resume_btn, [](lv_event_t *e) {
-        FluidNCClient::sendCommand("~"); // Send cycle start (resume)
-    }, LV_EVENT_CLICKED, nullptr);
-    
-    lv_obj_t *resume_label = lv_label_create(resume_btn);
-    lv_label_set_text(resume_label, LV_SYMBOL_PLAY " Resume");
-    lv_obj_set_style_text_font(resume_label, &lv_font_montserrat_18, 0);
-    lv_obj_center(resume_label);
     
     Serial.println("UICommon: HOLD popup shown");
 }
@@ -1046,20 +1185,6 @@ void UICommon::showAlarmPopup(const char *message) {
     lv_obj_set_flex_align(btn_container, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_align(btn_container, LV_ALIGN_BOTTOM_MID, 0, 0);
     
-    // Close button
-    lv_obj_t *close_btn = lv_btn_create(btn_container);
-    lv_obj_set_size(close_btn, 250, 50);
-    lv_obj_set_style_bg_color(close_btn, UITheme::BG_MEDIUM, 0);
-    lv_obj_add_event_cb(close_btn, [](lv_event_t *e) {
-        UICommon::alarm_popup_dismissed = true;  // Mark as dismissed
-        UICommon::hideAlarmPopup();
-    }, LV_EVENT_CLICKED, nullptr);
-    
-    lv_obj_t *close_label = lv_label_create(close_btn);
-    lv_label_set_text(close_label, LV_SYMBOL_CLOSE " Close");
-    lv_obj_set_style_text_font(close_label, &lv_font_montserrat_18, 0);
-    lv_obj_center(close_label);
-    
     // Clear Alarm button
     lv_obj_t *clear_btn = lv_btn_create(btn_container);
     lv_obj_set_size(clear_btn, 250, 50);
@@ -1075,6 +1200,20 @@ void UICommon::showAlarmPopup(const char *message) {
     lv_label_set_text(clear_label, LV_SYMBOL_REFRESH " Clear Alarm");
     lv_obj_set_style_text_font(clear_label, &lv_font_montserrat_18, 0);
     lv_obj_center(clear_label);
+    
+    // Close button
+    lv_obj_t *close_btn = lv_btn_create(btn_container);
+    lv_obj_set_size(close_btn, 250, 50);
+    lv_obj_set_style_bg_color(close_btn, UITheme::BG_MEDIUM, 0);
+    lv_obj_add_event_cb(close_btn, [](lv_event_t *e) {
+        UICommon::alarm_popup_dismissed = true;  // Mark as dismissed
+        UICommon::hideAlarmPopup();
+    }, LV_EVENT_CLICKED, nullptr);
+    
+    lv_obj_t *close_label = lv_label_create(close_btn);
+    lv_label_set_text(close_label, LV_SYMBOL_CLOSE " Close");
+    lv_obj_set_style_text_font(close_label, &lv_font_montserrat_18, 0);
+    lv_obj_center(close_label);
     
     Serial.println("UICommon: ALARM popup shown");
 }

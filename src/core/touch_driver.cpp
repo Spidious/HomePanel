@@ -1,12 +1,14 @@
 #include "core/touch_driver.h"
 #include "core/display_driver.h"
+#include "core/power_manager.h"
 
 // Static touch point data
 static struct {
     uint16_t x;
     uint16_t y;
     bool pressed;
-} touchPoint = {0, 0, false};
+    bool was_pressed;  // Track previous state for edge detection
+} touchPoint = {0, 0, false, false};
 
 // Static LCD instance pointer (set during init)
 static LGFX *lcd_instance = nullptr;
@@ -52,6 +54,13 @@ void TouchDriver::my_touchpad_read(lv_indev_t *indev, lv_indev_data_t *data) {
     } else {
         touchPoint.pressed = false;
     }
+    
+    // Detect touch press edge (transition from not pressed to pressed)
+    if (touchPoint.pressed && !touchPoint.was_pressed) {
+        // Notify power manager of user activity
+        PowerManager::onUserActivity();
+    }
+    touchPoint.was_pressed = touchPoint.pressed;
     
     if (touchPoint.pressed) {
         data->state = LV_INDEV_STATE_PRESSED;
