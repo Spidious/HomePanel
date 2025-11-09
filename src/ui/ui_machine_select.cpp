@@ -2,6 +2,7 @@
 #include "ui/ui_common.h"
 #include "ui/ui_tabs.h"
 #include "ui/ui_theme.h"
+#include "core/power_manager.h"
 #include "config.h"
 #include <Preferences.h>
 
@@ -11,6 +12,7 @@ lv_display_t *UIMachineSelect::display = nullptr;
 MachineConfig UIMachineSelect::machines[MAX_MACHINES];
 bool UIMachineSelect::edit_mode = false;
 lv_obj_t *UIMachineSelect::edit_mode_button = nullptr;
+lv_obj_t *UIMachineSelect::list_container = nullptr;  // Machine list container
 lv_obj_t *UIMachineSelect::machine_buttons[MAX_MACHINES] = {nullptr};
 lv_obj_t *UIMachineSelect::edit_buttons[MAX_MACHINES] = {nullptr};
 lv_obj_t *UIMachineSelect::move_up_buttons[MAX_MACHINES] = {nullptr};
@@ -51,26 +53,34 @@ void UIMachineSelect::show(lv_display_t *disp) {
     lv_obj_set_style_text_color(title, UITheme::TEXT_LIGHT, 0);
     lv_obj_align(title, LV_ALIGN_TOP_LEFT, 20, 15);
     
-    // Add Machine button (upper right corner, initially hidden)
-    // Centered vertically between top of screen and container
-    add_button = lv_btn_create(screen);
-    lv_obj_set_size(add_button, 120, 45);  // 5px taller
+    // Button container for right-aligned buttons
+    lv_obj_t *btn_container = lv_obj_create(screen);
+    lv_obj_set_size(btn_container, LV_SIZE_CONTENT, 45);
+    lv_obj_align(btn_container, LV_ALIGN_TOP_RIGHT, -20, 11);
+    lv_obj_set_flex_flow(btn_container, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(btn_container, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);  // Start = left-to-right within container
+    lv_obj_set_style_pad_all(btn_container, 0, 0);
+    lv_obj_set_style_pad_column(btn_container, 5, 0);  // 5px gap between buttons
+    lv_obj_set_style_bg_opa(btn_container, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(btn_container, 0, 0);
+    
+    // Add Machine button (initially hidden, in edit mode)
+    add_button = lv_btn_create(btn_container);
+    lv_obj_set_size(add_button, 120, 45);
     lv_obj_set_style_bg_color(add_button, UITheme::BTN_PLAY, 0);
-    lv_obj_align(add_button, LV_ALIGN_TOP_RIGHT, -145, 11);  // Moved up 10px
     lv_obj_add_event_cb(add_button, onAddMachine, LV_EVENT_CLICKED, nullptr);
     lv_obj_add_flag(add_button, LV_OBJ_FLAG_HIDDEN);  // Hidden by default
+    lv_obj_add_flag(add_button, LV_OBJ_FLAG_FLOATING);  // Floating so it doesn't affect layout when hidden
     
     lv_obj_t *add_label = lv_label_create(add_button);
     lv_label_set_text(add_label, LV_SYMBOL_PLUS " Add");
     lv_obj_set_style_text_font(add_label, &lv_font_montserrat_16, 0);
     lv_obj_center(add_label);
     
-    // Edit Mode toggle button (upper right corner)
-    // Centered vertically between top of screen and container
-    edit_mode_button = lv_btn_create(screen);
-    lv_obj_set_size(edit_mode_button, 120, 45);  // 5px taller
+    // Edit Mode toggle button
+    edit_mode_button = lv_btn_create(btn_container);
+    lv_obj_set_size(edit_mode_button, 120, 45);
     lv_obj_set_style_bg_color(edit_mode_button, UITheme::ACCENT_SECONDARY, 0);
-    lv_obj_align(edit_mode_button, LV_ALIGN_TOP_RIGHT, -20, 11);  // Moved up 10px
     lv_obj_add_event_cb(edit_mode_button, onEditModeToggle, LV_EVENT_CLICKED, nullptr);
     
     lv_obj_t *edit_mode_label = lv_label_create(edit_mode_button);
@@ -78,8 +88,23 @@ void UIMachineSelect::show(lv_display_t *disp) {
     lv_obj_set_style_text_font(edit_mode_label, &lv_font_montserrat_16, 0);
     lv_obj_center(edit_mode_label);
     
+    // Power Off button - only show if power management is enabled
+    if (PowerManager::isEnabled()) {
+        lv_obj_t *power_off_btn = lv_btn_create(btn_container);
+        lv_obj_set_size(power_off_btn, 120, 45);
+        lv_obj_set_style_bg_color(power_off_btn, lv_color_hex(0xB43000), 0);  // Orange
+        lv_obj_add_event_cb(power_off_btn, [](lv_event_t *e) {
+            UICommon::showPowerOffConfirmDialog();
+        }, LV_EVENT_CLICKED, nullptr);
+        
+        lv_obj_t *power_off_label = lv_label_create(power_off_btn);
+        lv_label_set_text(power_off_label, LV_SYMBOL_POWER);  // Just icon to fit
+        lv_obj_set_style_text_font(power_off_label, &lv_font_montserrat_20, 0);
+        lv_obj_center(power_off_label);
+    }
+    
     // Machine list container (760px width x 395px height with 20px padding = 720x355 usable)
-    lv_obj_t *list_container = lv_obj_create(screen);
+    list_container = lv_obj_create(screen);
     lv_obj_set_size(list_container, 760, 395);  // Taller since no subtitle
     lv_obj_set_style_bg_color(list_container, UITheme::BG_MEDIUM, 0);
     lv_obj_set_style_border_width(list_container, 1, 0);
@@ -115,21 +140,32 @@ void UIMachineSelect::hide() {
 }
 
 void UIMachineSelect::refreshMachineList() {
-    // Find list container
-    lv_obj_t *list_container = lv_obj_get_child(screen, 3); // 4th child (title, add button, edit mode button, container)
+    Serial.println("UIMachineSelect::refreshMachineList: Starting refresh");
     
     // Clear existing buttons
     lv_obj_clean(list_container);
     
     // Count configured machines
     int configured_count = getConfiguredMachineCount();
+    Serial.printf("UIMachineSelect: Found %d configured machines\n", configured_count);
+    
+    // Debug: Print each machine state
+    for (int i = 0; i < MAX_MACHINES; i++) {
+        Serial.printf("  Machine %d: is_configured=%d, name='%s'\n", 
+                     i, machines[i].is_configured, machines[i].name);
+    }
     
     // Update Add button visibility (only show in edit mode)
     if (edit_mode && configured_count < MAX_MACHINES) {
         lv_obj_clear_flag(add_button, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(add_button, LV_OBJ_FLAG_FLOATING);  // Remove floating so it participates in flex layout
     } else {
         lv_obj_add_flag(add_button, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(add_button, LV_OBJ_FLAG_FLOATING);  // Make floating so it doesn't affect layout
     }
+    
+    // Force flex container to recalculate layout
+    lv_obj_update_layout(lv_obj_get_parent(add_button));
     
     if (edit_mode) {
         // EDIT MODE: Show control buttons with narrower machine buttons
@@ -220,6 +256,8 @@ void UIMachineSelect::refreshMachineList() {
         }
     } else {
         // NORMAL MODE: Full-width machine buttons with flex layout
+        Serial.println("UIMachineSelect: NORMAL MODE - creating machine buttons");
+        
         // Set list container to use flex layout
         lv_obj_set_flex_flow(list_container, LV_FLEX_FLOW_ROW_WRAP);
         lv_obj_set_flex_align(list_container, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
@@ -228,6 +266,8 @@ void UIMachineSelect::refreshMachineList() {
         // Display configured machines with flex layout
         for (int i = 0; i < MAX_MACHINES; i++) {
             if (machines[i].is_configured) {
+                Serial.printf("  Creating button for machine %d: %s\n", i, machines[i].name);
+                
                 // Machine button - sized for 2 rows of 2 buttons (4 machines total)
                 // Container: 720px usable (760 - 40 padding), with 20px gap = 340px per button (conservative)
                 machine_buttons[i] = lv_btn_create(list_container);

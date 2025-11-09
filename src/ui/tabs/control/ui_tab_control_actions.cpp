@@ -53,7 +53,7 @@ void UITabControlActions::create(lv_obj_t *tab) {
     lv_obj_set_pos(btn_reset, left_col_x, y_pos);
     lv_obj_set_style_bg_color(btn_reset, UITheme::UI_WARNING, LV_PART_MAIN);  // Orange for reset
     lv_obj_t *lbl_reset = lv_label_create(btn_reset);
-    lv_label_set_text(lbl_reset, LV_SYMBOL_REFRESH " Reset");
+    lv_label_set_text(lbl_reset, LV_SYMBOL_REFRESH " Soft Reset");
     lv_obj_set_style_text_font(lbl_reset, &lv_font_montserrat_18, 0);
     lv_obj_center(lbl_reset);
     lv_obj_add_event_cb(btn_reset, onSoftResetClicked, LV_EVENT_CLICKED, nullptr);

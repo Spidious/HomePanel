@@ -20,7 +20,7 @@ void UITabSettingsGeneral::create(lv_obj_t *tab) {
     
     // Load current preference
     Preferences prefs;
-    prefs.begin(PREFS_NAMESPACE, true);  // Read-only
+    prefs.begin(PREFS_SYSTEM_NAMESPACE, true);  // Read-only
     bool show_machine_select = prefs.getBool("show_mach_sel", true);  // Default to true
     prefs.end();
     
@@ -38,10 +38,10 @@ void UITabSettingsGeneral::create(lv_obj_t *tab) {
     lv_label_set_text(machine_sel_label, "Show:");
     lv_obj_set_style_text_font(machine_sel_label, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(machine_sel_label, UITheme::TEXT_LIGHT, 0);
-    lv_obj_set_pos(machine_sel_label, 20, 72);  // 20 + 40 (title spacing) + 12 (vertical alignment)
+    lv_obj_set_pos(machine_sel_label, 20, 70);  // 20 + 40 (title spacing) + 12 (vertical alignment)
     
     show_machine_select_switch = lv_switch_create(tab);
-    lv_obj_set_pos(show_machine_select_switch, 100, 67);  // 20 + 40 (title spacing) + 7 (switch alignment)
+    lv_obj_set_pos(show_machine_select_switch, 140, 65);  // 20 + 40 (title spacing) + 7 (switch alignment)
     if (show_machine_select) {
         lv_obj_add_state(show_machine_select_switch, LV_STATE_CHECKED);
     }
@@ -49,8 +49,8 @@ void UITabSettingsGeneral::create(lv_obj_t *tab) {
     // Description text
     lv_obj_t *desc_label = lv_label_create(tab);
     lv_label_set_text(desc_label, "When disabled, the first configured machine\nwill be loaded automatically at startup.");
-    lv_obj_set_style_text_font(desc_label, &lv_font_montserrat_18, 0);
-    lv_obj_set_style_text_color(desc_label, UITheme::TEXT_MEDIUM, 0);
+    lv_obj_set_style_text_font(desc_label, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(desc_label, UITheme::TEXT_DISABLED, 0);
     lv_obj_set_pos(desc_label, 20, 107);  // 20 + 40 (title) + 40 (switch row) + 7 (spacing)
     
     // === Action Buttons (positioned at bottom with 20px margins) ===
@@ -94,7 +94,7 @@ static void btn_save_general_event_handler(lv_event_t *e) {
         Serial.printf("UITabSettingsGeneral: Saving show_mach_sel=%d\n", show_machine_select);
         
         Preferences prefs;
-        if (!prefs.begin(PREFS_NAMESPACE, false)) {  // Read-write
+        if (!prefs.begin(PREFS_SYSTEM_NAMESPACE, false)) {  // Read-write
             Serial.println("UITabSettingsGeneral: ERROR - Failed to open Preferences for writing!");
             if (status_label != NULL) {
                 lv_label_set_text(status_label, "Error: Failed to save!");
@@ -107,14 +107,14 @@ static void btn_save_general_event_handler(lv_event_t *e) {
         prefs.end();
         
         // Verify it was saved
-        prefs.begin(PREFS_NAMESPACE, true);
+        prefs.begin(PREFS_SYSTEM_NAMESPACE, true);
         bool verified = prefs.getBool("show_mach_sel", true);
         prefs.end();
         
         Serial.printf("UITabSettingsGeneral: Verified show_mach_sel=%d\n", verified);
         
         if (status_label != NULL) {
-            lv_label_set_text(status_label, "Settings saved! Restart to apply.");
+            lv_label_set_text(status_label, "Settings saved!");
             lv_obj_set_style_text_color(status_label, UITheme::UI_SUCCESS, 0);
         }
     }

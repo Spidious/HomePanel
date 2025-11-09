@@ -4,6 +4,7 @@
 #include <Preferences.h>
 #include "core/display_driver.h"     // Display driver module
 #include "core/touch_driver.h"       // Touch driver module
+#include "core/power_manager.h"      // Power management module
 #include "network/screenshot_server.h"  // Screenshot web server
 #include "network/fluidnc_client.h"     // FluidNC WebSocket client
 #include "ui/ui_theme.h"        // UI theme colors
@@ -46,6 +47,11 @@ void setup()
     }
     Serial.println("Touch driver initialized successfully");
 
+    // Initialize Power Manager
+    Serial.println("Initializing power manager...");
+    PowerManager::init(&displayDriver);
+    Serial.println("Power manager initialized successfully");
+
     // Store display driver reference for later use (screenshot server after WiFi connects)
     UICommon::setDisplayDriver(&displayDriver);
 
@@ -62,7 +68,7 @@ void setup()
 
     // Check if machine selection should be shown
     Preferences prefs;
-    prefs.begin(PREFS_NAMESPACE, true);  // Read-only
+    prefs.begin(PREFS_SYSTEM_NAMESPACE, true);  // Read-only
     bool show_machine_select = prefs.getBool("show_mach_sel", true);  // Default to true
     prefs.end();
     
@@ -245,6 +251,9 @@ void loop()
             
             // Update Override tab
             UITabControlOverride::updateValues(status.feed_override, status.rapid_override, status.spindle_override);
+            
+            // Update power manager with current machine state
+            PowerManager::update(status.state);
         } else {
             // Machine disconnected - show OFFLINE state and reset all values to dashes
             UICommon::updateMachineState("OFFLINE");
@@ -259,6 +268,9 @@ void loop()
             UITabStatus::updateRapidOverride(-9999.0f);        // Reset rapid override
             UITabStatus::updateSpindle(-9999.0f, -9999.0f);    // Reset spindle and override
             UITabStatus::updateModalStates("---", "---", "---", "---", "---", "---", "---", "---", "---");
+            
+            // Update power manager with OFFLINE state (treat as IDLE for power management)
+            PowerManager::update(STATE_IDLE);
         }
     }
     
