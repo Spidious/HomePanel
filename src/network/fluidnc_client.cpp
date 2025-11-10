@@ -66,6 +66,14 @@ void FluidNCClient::disconnect() {
     currentStatus.state = STATE_DISCONNECTED;
 }
 
+void FluidNCClient::stopReconnectionAttempts() {
+    Serial.println("[FluidNC] Stopping reconnection attempts");
+    webSocket.disconnect();  // Fully disconnect to stop retry attempts
+    webSocket.setReconnectInterval(86400000);  // 24 hours - effectively disabled
+    currentStatus.is_connected = false;
+    currentStatus.state = STATE_DISCONNECTED;
+}
+
 bool FluidNCClient::isConnected() {
     return currentStatus.is_connected;
 }

@@ -99,6 +99,9 @@ public:
     // Disconnect from FluidNC
     static void disconnect();
     
+    // Stop reconnection attempts (sets reconnect interval to 24 hours)
+    static void stopReconnectionAttempts();
+    
     // Check if connected
     static bool isConnected();
     

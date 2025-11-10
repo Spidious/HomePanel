@@ -938,6 +938,9 @@ void UICommon::showConnectionErrorDialog(const char *title, const char *message)
     // Hide connecting popup if it's showing
     hideConnectingPopup();
     
+    // Stop FluidNC reconnection attempts
+    FluidNCClient::stopReconnectionAttempts();
+    
     // Create modal background
     connection_error_dialog = lv_obj_create(lv_scr_act());
     lv_obj_set_size(connection_error_dialog, LV_PCT(100), LV_PCT(100));
