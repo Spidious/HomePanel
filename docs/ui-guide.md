@@ -44,7 +44,7 @@ On startup, FluidTouch displays a splash screen before proceeding to machine sel
 
 The machine selection screen appears after the splash screen when you first power on FluidTouch. It displays all configured machines (up to 4) with their names, WiFi networks, and connection status. Tap any machine to connect.
 
-If no machines are configured, you'll see a prompt to add your first machine using the "⚙️ Manage" button in the upper right corner.
+If no machines are configured, you'll see a prompt to add your first machine.
 
 Each machine configuration stores:
 - Machine name
@@ -55,9 +55,9 @@ Each machine configuration stores:
 
 ### Machine Selection Edit Mode
 
-![Machine Selection Edit Mode](./images/machine-selection-edit.png)
+![Machine Selection Edit Mode](./images/machine-edit-dialog.png)
 
-Clicking the "⚙️ Manage" button enters edit mode, which allows you to reorder, edit, or delete machines:
+Clicking the "Edit" button enters edit mode, which allows you to reorder, edit, or delete machines:
 
 - **Layout**: Machine buttons (458px wide) on the left, control buttons (60×60px) on the right
 - **Control buttons**: Up/down arrows for reordering, edit (✏️) for configuration, delete (🗑️) for removal
@@ -67,7 +67,7 @@ Clicking the "⚙️ Manage" button enters edit mode, which allows you to reorde
 
 ### Machine Add/Edit Dialog
 
-![Machine Add/Edit Dialog](./images/machine-dialog.png)
+![Machine Add/Edit Dialog](./images/machine-add-dialog.png)
 
 Modal dialog for adding or editing machine configurations:
 
@@ -108,18 +108,6 @@ The status bar at the top displays:
 - Machine name with connection symbol (top line, blue)
 - WiFi network name (bottom line, cyan)
 
-### State Popups
-
-**HOLD Popup:**
-- Appears when machine enters HOLD state
-- Shows last FluidNC message
-- Buttons: "Close" (dismiss) and "Resume" (send cycle start)
-
-**ALARM Popup:**
-- Appears when machine enters ALARM state
-- Shows alarm message
-- Buttons: "Close" (dismiss) and "Clear Alarm" (reset + unlock)
-
 ---
 
 ## Status Tab
@@ -130,11 +118,9 @@ Real-time machine status display with four columns:
 
 **Column 1 - Work Position:**
 - X, Y, Z coordinates in work coordinate system
-- Orange axis labels
 
 **Column 2 - Machine Position:**
 - X, Y, Z coordinates in machine coordinate system
-- Cyan axis labels
 
 **Column 3 - Rates:**
 - Feed Rate with override percentage
@@ -152,6 +138,9 @@ Real-time machine status display with four columns:
 - Tool Number
 
 **SD Card File Progress** (when printing):
+
+![SD File Progress](./images/sd-file-progress.png)
+
 - Filename (truncated to fit)
 - Progress bar (0-100%)
 - Elapsed time (H:MM format)
@@ -200,24 +189,44 @@ Button-based jogging interface:
 
 ### Joystick
 
-![Control Joystick](./images/control-joystick.png)
+Analog-style jogging with multiple axis selection modes:
 
-Analog-style jogging:
+**XY Mode** - Simultaneous XY movement:
 
-**XY Joystick:**
+![Control Joystick XY](./images/control-joystick-xy.png)
+
 - 220×220 pixel circular pad
 - Draggable knob with crosshairs
 - Quadratic response curve for fine control
 
-**Z Slider:**
-- 80×220 pixel vertical slider
-- Draggable knob
-- Quadratic response curve
+**XYZ Mode** - All three axes:
 
-**Info Display:**
-- Current percentage (X/Y/Z)
-- Feed rate (mm/min)
-- Max feed rate from settings
+![Control Joystick XYZ](./images/control-joystick-xyz.png)
+
+- Circular XY pad with Z slider
+- Independent control of all axes
+- Z slider on right side (80×220 pixels)
+
+**XZ Mode** - X and Z axes:
+
+![Control Joystick XZ](./images/control-joystick-xz.png)
+
+- Horizontal X slider
+- Vertical Z slider
+- Useful for face operations
+
+**YZ Mode** - Y and Z axes:
+
+![Control Joystick YZ](./images/control-joystick-yz.png)
+
+- Horizontal Y slider
+- Vertical Z slider
+- Useful for side operations
+
+**Common Features:**
+- Mode buttons below joystick with white border on selected mode
+- Quadratic response curve for precise control near center
+- Info display shows: current percentage (X/Y/Z), feed rate (mm/min), max feed rate from settings
 
 ### Probe
 
@@ -441,6 +450,69 @@ Project information:
 **Screenshot Server QR Code:**
 - Appears when WiFi connects
 - Shows http://[IP] URL
+
+---
+
+## Popups & Dialogs
+
+### System Options Popup
+
+![System Options](./images/system-options-popup.png)
+
+Appears when clicking the right side of status bar while connected:
+
+- **Title:** System Options
+- **Message:** "Restart to change machines" (or with power off note if power management enabled)
+- **Buttons:**
+  - Restart - Restarts ESP32 to return to machine selection
+  - Power Off - Deep sleep mode (only if power management enabled)
+  - Cancel - Closes dialog
+
+### Connection Error Popups
+
+**Machine Disconnected Popup:**
+
+![Machine Disconnected](./images/disconnected-popup.png)
+
+Appears when connection is lost after being previously connected:
+
+- **Title:** Machine Disconnected
+- **Message:** Shows connection details (machine name, URL, error info)
+- **Buttons:**
+  - Connect - Attempts to reconnect
+  - Restart - Restarts ESP32
+  - Close - Dismisses dialog
+
+**Machine Connection Failed Popup:**
+
+![Machine Connection Failed](./images/connection-failed-popup.png)
+
+Appears when initial connection attempt fails or when clicking status bar while disconnected:
+
+- **Title:** Connection Lost or Machine Connection Failed
+- **Message:** Shows connection details and failure reason
+- **Buttons:**
+  - Connect - Attempts to reconnect
+  - Restart - Restarts ESP32
+  - Close - Dismisses dialog
+
+### State Popups
+
+**HOLD Popup:**
+
+![HOLD Popup](./images/popup-hold.png)
+
+- Appears when machine enters HOLD state
+- Shows last FluidNC message
+- Buttons: "Close" (dismiss) and "Resume" (send cycle start)
+
+**ALARM Popup:**
+
+![ALARM Popup](./images/popup-alarm.png)
+
+- Appears when machine enters ALARM state
+- Shows alarm message
+- Buttons: "Close" (dismiss) and "Clear Alarm" (reset + unlock)
 
 ---
 
