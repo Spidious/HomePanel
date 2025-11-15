@@ -1,5 +1,6 @@
 #include "ui/tabs/ui_tab_files.h"
 #include "ui/ui_theme.h"
+#include "ui/ui_tabs.h"
 #include "ui/upload_manager.h"
 #include "network/fluidnc_client.h"
 #include "config.h"
@@ -516,6 +517,12 @@ static void play_button_event_cb(lv_event_t *e) {
         char cmd[256];
         snprintf(cmd, sizeof(cmd), "%s%s\n", cmd_prefix, filename);
         FluidNCClient::sendCommand(cmd);
+        
+        // Switch to Status tab (index 0) to monitor progress
+        lv_obj_t *tabview = UITabs::getTabview();
+        if (tabview) {
+            lv_tabview_set_active(tabview, 0, LV_ANIM_OFF);
+        }
     }
 }
 
@@ -804,7 +811,7 @@ void UITabFiles::updateFileListUI() {
     }
     
     // Static storage for filenames/paths (persistent across callbacks)
-    static char filenames_storage[100][256];  // Increased size for full paths
+    static char filenames_storage[100][256];
     size_t max_files = std::min(cache->file_list.size(), (size_t)100);
     
     // Create file/directory entries
