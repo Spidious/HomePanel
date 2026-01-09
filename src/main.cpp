@@ -12,10 +12,12 @@
 
 #include "ui.h"
 
+#define BUFFER_LINES 480  // Full screen buffer for smooth rendering (with 8MB PSRAM available)
+
 LGFX gfx;
 
 /* Change to your screen resolution */
-static lv_disp_draw_buf_t draw_buf;
+// static lv_disp_draw_buf_t draw_buf;
 static lv_color_t *buf;
 static lv_color_t *buf1;
 
@@ -35,30 +37,20 @@ uint16_t touch_x, touch_y;
 //                   , ( lgfx::rgb565_t* )&color_p->full);
 //   lv_disp_flush_ready( disp );
 // }
-void my_disp_flush(lv_disp_drv_t *disp,
-                   const lv_area_t *area,
-                   lv_color_t *color_p)
-{
-  uint32_t w = area->x2 - area->x1 + 1;
-  uint32_t h = area->y2 - area->y1 + 1;
+void my_disp_flush(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map) {
+  LGFX *lcd = (LGFX *)lv_display_get_user_data(disp);
 
-  // lv_draw_sw_rgb565_swap(color_p, w * h);
+  uint32_t w = lv_area_get_width(area);
+  uint32_t h = lv_area_get_height(area);
 
-  gfx.waitDMA();
-  gfx.pushImageDMA(
-      area->x1,
-      area->y1,
-      w,
-      h,
-      (lgfx::rgb565_t *)color_p
-  );
-  gfx.waitDMA();
+  lv_draw_sw_rgb565_swap(px_map, w * h);
+  lcd->pushImageDMA(area->x1, area->y1, w, h, (uint16_t *)px_map);
 
-  lv_disp_flush_ready(disp);
+  lv_display_flush_ready(disp);
 }
 
 //  Read touch
-void my_touchpad_read( lv_indev_drv_t * indev_driver, lv_indev_data_t * data )
+void my_touchpad_read( lv_indev_t * indev_driver, lv_indev_data_t * data )
 {
   data->state = LV_INDEV_STATE_REL;// The state of data existence when releasing the finger
   if (gfx.getTouch( &touch_x, &touch_y ))
@@ -100,10 +92,19 @@ void setup()
 {
   Serial.begin(115200);
 
+
+  lv_display_t *disp;
+  lv_indev_t *indev;
+
   pinMode(19, OUTPUT);
 
   Wire.begin(15, 16);
+  Wire.setClock(100000);  // 100kHz for compatibility
+  Wire.setTimeOut(100);   // Prevent hangs
   delay(50);
+
+
+
   while (1) {
     if (i2cScanForAddress(0x30) && i2cScanForAddress(0x5D)) {
       Serial.print("The microcontroller is detected: address 0x");
@@ -134,34 +135,48 @@ void setup()
   // Init Display
   gfx.init();
   gfx.setColorDepth(16); // Maybe need to remove
-  gfx.setSwapBytes(true);
   gfx.initDMA();
   gfx.startWrite();
   gfx.fillScreen(TFT_BLACK);
 
   lv_init();
-  size_t buffer_size = sizeof(lv_color_t) * LCD_H_RES * LCD_V_RES;
-  buf = (lv_color_t *)heap_caps_malloc(buffer_size, MALLOC_CAP_SPIRAM);
-  buf1 = (lv_color_t *)heap_caps_malloc(buffer_size, MALLOC_CAP_SPIRAM);
 
-  lv_disp_draw_buf_init(&draw_buf, buf, buf1, LCD_H_RES * LCD_V_RES);
+  // Allocate display buffers in PSRAM (dual buffering for smooth rendering)
+  uint32_t buf_size = LCD_H_RES * BUFFER_LINES;
+  buf = (lv_color_t *)heap_caps_malloc(buf_size * sizeof(lv_color_t), MALLOC_CAP_SPIRAM);
+  buf1 = (lv_color_t *)heap_caps_malloc(buf_size * sizeof(lv_color_t), MALLOC_CAP_SPIRAM);
+
+  if (!buf || !buf1) {
+    Serial.println("ERROR: Failed to allocate display buffers in PSRAM!");
+    return;
+  }
+
+  disp = lv_display_create(LCD_H_RES, LCD_V_RES);
+  lv_display_set_flush_cb(disp, my_disp_flush);
+  lv_display_set_buffers(disp, buf, buf1, buf_size * sizeof(lv_color_t), LV_DISPLAY_RENDER_MODE_PARTIAL);
+
+  // Store lcd instance in display user data for flush callback
+  lv_display_set_user_data(disp, &gfx);
 
   // Initialize display
-  static lv_disp_drv_t disp_drv;
-  lv_disp_drv_init(&disp_drv);
-  // Change the following lines to your display resolution
-  disp_drv.hor_res = LCD_H_RES;
-  disp_drv.ver_res = LCD_V_RES;
-  disp_drv.flush_cb = my_disp_flush;
-  disp_drv.draw_buf = &draw_buf;
-  lv_disp_drv_register(&disp_drv);
+  // static lv_disp_drv_t disp_drv;
+  // lv_disp_drv_init(&disp_drv);
+  // // Change the following lines to your display resolution
+  // disp_drv.hor_res = LCD_H_RES;
+  // disp_drv.ver_res = LCD_V_RES;
+  // disp_drv.flush_cb = my_disp_flush;
+  // disp_drv.draw_buf = &draw_buf;
+  // lv_disp_drv_register(&disp_drv);
+
+
+  // disp = lv_display_create(LCD_H_RES, LCD_V_RES);
+  lv_display_set_flush_cb(disp, my_disp_flush);
+  lv_display_set_buffers(disp, buf, buf1, buf_size * sizeof(lv_color_t), LV_DISPLAY_RENDER_MODE_PARTIAL);
 
   // Initialize input device driver program
-  static lv_indev_drv_t indev_drv;
-  lv_indev_drv_init(&indev_drv);
-  indev_drv.type = LV_INDEV_TYPE_POINTER;
-  indev_drv.read_cb = my_touchpad_read;
-  lv_indev_drv_register(&indev_drv);
+  indev = lv_indev_create();
+  lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
+  lv_indev_set_read_cb(indev, my_touchpad_read);
 
   delay(100);
   gfx.fillScreen(TFT_BLACK);
