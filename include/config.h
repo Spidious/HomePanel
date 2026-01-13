@@ -4,7 +4,7 @@
 #include <Arduino.h>
 
 // Version
-#define FLUIDTOUCH_VERSION "1.0.1"
+#define HOMEPANEL_VERSION "0.0.1"
 
 // Display settings
 #define SCREEN_WIDTH  800
@@ -46,11 +46,8 @@
 #define SPLASH_DURATION_MS 2500
 
 // Preferences namespaces
-#define PREFS_NAMESPACE "fluidtouch"        // Machine configurations
-#define PREFS_SYSTEM_NAMESPACE "ft_system"  // System flags (clean_shutdown, etc.)
-
-// Screenshot server configuration
-#define ENABLE_SCREENSHOT_SERVER true
+#define PREFS_NAMESPACE "homepanel"        // Machine configurations
+#define PREFS_SYSTEM_NAMESPACE "hp_system"  // System flags (clean_shutdown, etc.)
 
 // SD Card Configuration
 #ifdef HARDWARE_ADVANCE
@@ -68,6 +65,6 @@
 #endif
 
 // Upload Configuration
-#define FLUIDNC_UPLOAD_PATH "/fluidtouch/uploads/"
+#define HOMEPANEL_UPLOAD_PATH "/homepanel/uploads/"
 
 #endif // CONFIG_H

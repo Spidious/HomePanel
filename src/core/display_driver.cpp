@@ -2,6 +2,8 @@
 #include <esp_heap_caps.h>
 #include <Wire.h>
 
+#define MAX_BRIGHTNESS 25
+
 // LovyanGFX constructor
 LGFX::LGFX(void) {
     {
@@ -304,7 +306,7 @@ void DisplayDriver::my_disp_flush(lv_display_t *disp, const lv_area_t *area, uin
 // Backlight control methods
 void DisplayDriver::setBacklight(uint8_t brightness_percent) {
     // Clamp to valid percentage range
-    if (brightness_percent > 100) brightness_percent = 100;
+    if (brightness_percent > MAX_BRIGHTNESS) brightness_percent = MAX_BRIGHTNESS;
     
     // Convert percentage (0-100) to hardware value (0-255)
     uint8_t hw_value = (brightness_percent * 255) / 100;

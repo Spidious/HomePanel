@@ -1,5 +1,4 @@
 #include "core/power_manager.h"
-#include "network/fluidnc_client.h"
 #include "config.h"
 #include <Preferences.h>
 #include <Arduino.h>
@@ -11,9 +10,9 @@ DisplayDriver* PowerManager::display_driver = nullptr;
 bool PowerManager::enabled = true;
 uint32_t PowerManager::dim_timeout_sec = 30;         // Default: dim after 30 seconds
 uint32_t PowerManager::sleep_timeout_sec = 300;      // Default: screen off after 5 minutes
-uint32_t PowerManager::deep_sleep_timeout_sec = 900; // Default: deep sleep after 15 minutes
-uint8_t PowerManager::normal_brightness = 100;       // Default: 100% brightness when active
-uint8_t PowerManager::dim_brightness = 25;           // Default: 25% brightness when dimmed
+uint32_t PowerManager::deep_sleep_timeout_sec = 0; //900; // Default: deep sleep after 15 minutes
+uint8_t PowerManager::normal_brightness = 35;       // Default: 100% brightness when active
+uint8_t PowerManager::dim_brightness = 10;           // Default: 25% brightness when dimmed
 uint32_t PowerManager::last_activity_ms = 0;
 PowerManager::PowerState PowerManager::current_state = PowerManager::FULL_BRIGHTNESS;
 bool PowerManager::state_changed = false;
@@ -23,7 +22,7 @@ void PowerManager::init(DisplayDriver* driver) {
     last_activity_ms = millis();
     current_state = FULL_BRIGHTNESS;
     loadSettings();
-    
+
     Serial.println("\n=== Power Manager Initialized ===");
     Serial.printf("Enabled: %s\n", enabled ? "YES" : "NO");
     Serial.printf("Dim timeout: %d seconds\n", dim_timeout_sec);
@@ -31,7 +30,7 @@ void PowerManager::init(DisplayDriver* driver) {
     Serial.printf("Deep sleep timeout: %d seconds\n", deep_sleep_timeout_sec);
     Serial.printf("Normal brightness: %d%%\n", normal_brightness);
     Serial.printf("Dim brightness: %d%%\n", dim_brightness);
-    
+
     // Apply the loaded brightness immediately
     if (display_driver) {
         display_driver->setBacklight(normal_brightness);
@@ -41,7 +40,7 @@ void PowerManager::init(DisplayDriver* driver) {
 
 void PowerManager::onUserActivity() {
     last_activity_ms = millis();
-    
+
     // If we were dimmed or screen off, return to full brightness
     if (current_state != FULL_BRIGHTNESS) {
         enterFullBrightness();
@@ -53,28 +52,17 @@ void PowerManager::update(int machine_state) {
     if (!enabled || display_driver == nullptr) {
         return;
     }
-    
-    // Power management ONLY applies to IDLE and DISCONNECTED states
-    // All other states (RUN, ALARM, HOLD, JOG, etc.) stay at full brightness
-    if (machine_state != STATE_IDLE && machine_state != STATE_DISCONNECTED) {
-        if (current_state != FULL_BRIGHTNESS) {
-            enterFullBrightness();
-        }
-        // Reset activity timer when not in IDLE/DISCONNECTED to prevent immediate dim when returning
-        last_activity_ms = millis();
-        return;
-    }
-    
+
     // Calculate time since last activity
     uint32_t idle_ms = millis() - last_activity_ms;
     uint32_t idle_sec = idle_ms / 1000;
-    
+
     // Check for deep sleep timeout (if enabled)
     if (deep_sleep_timeout_sec > 0 && idle_sec >= deep_sleep_timeout_sec) {
         enterDeepSleep();
         return;  // Never returns, but good practice
     }
-    
+
     // State machine for screen power management
     switch (current_state) {
         case FULL_BRIGHTNESS:
@@ -83,14 +71,14 @@ void PowerManager::update(int machine_state) {
                 enterDimmed();
             }
             break;
-            
+
         case DIMMED:
             // Check if we should turn off screen (only if sleep is enabled)
             if (sleep_timeout_sec > 0 && idle_sec >= sleep_timeout_sec) {
                 enterScreenOff();
             }
             break;
-            
+
         case SCREEN_OFF:
             // Stay off until user activity or deep sleep timeout
             break;
@@ -100,16 +88,16 @@ void PowerManager::update(int machine_state) {
 void PowerManager::loadSettings() {
     Preferences prefs;
     prefs.begin(PREFS_SYSTEM_NAMESPACE, true);  // Read-only
-    
+
     enabled = prefs.getBool("pm_enabled", true);
     dim_timeout_sec = prefs.getUInt("pm_dim_to", 30);
     sleep_timeout_sec = prefs.getUInt("pm_sleep_to", 300);
-    deep_sleep_timeout_sec = prefs.getUInt("pm_deepsleep", 900);
+    deep_sleep_timeout_sec = prefs.getUInt("pm_deepsleep", 0);
     normal_brightness = prefs.getUChar("pm_norm_bri", 100);  // 0-100 percentage
     dim_brightness = prefs.getUChar("pm_dim_bri", 25);       // 0-100 percentage
-    
+
     prefs.end();
-    
+
     // Validate ranges (0 = disabled is valid)
     if (dim_timeout_sec > 0 && dim_timeout_sec < 10) dim_timeout_sec = 10;
     if (dim_timeout_sec > 600) dim_timeout_sec = 600;
@@ -121,23 +109,23 @@ void PowerManager::loadSettings() {
     }
     if (deep_sleep_timeout_sec > 0 && deep_sleep_timeout_sec < 300) deep_sleep_timeout_sec = 300;
     if (deep_sleep_timeout_sec > 7200) deep_sleep_timeout_sec = 7200;  // Max 2 hours
-    if (normal_brightness > 100) normal_brightness = 100;  // Validate percentage range
-    if (dim_brightness > 100) dim_brightness = 25;         // Validate percentage range
+    if (normal_brightness > 35) normal_brightness = 35;  // Validate percentage range
+    if (dim_brightness > 10) dim_brightness = 10;         // Validate percentage range
 }
 
 void PowerManager::saveSettings() {
     Preferences prefs;
     prefs.begin(PREFS_SYSTEM_NAMESPACE, false);  // Read-write
-    
+
     prefs.putBool("pm_enabled", enabled);
     prefs.putUInt("pm_dim_to", dim_timeout_sec);
     prefs.putUInt("pm_sleep_to", sleep_timeout_sec);
     prefs.putUInt("pm_deepsleep", deep_sleep_timeout_sec);
     prefs.putUChar("pm_norm_bri", normal_brightness);
     prefs.putUChar("pm_dim_bri", dim_brightness);
-    
+
     prefs.end();
-    
+
     Serial.println("\n=== Power Manager Settings Saved ===");
     Serial.printf("Enabled: %s\n", enabled ? "YES" : "NO");
     Serial.printf("Dim timeout: %d seconds\n", dim_timeout_sec);
@@ -245,34 +233,34 @@ void PowerManager::enterScreenOff() {
 
 void PowerManager::enterDeepSleep() {
     Serial.println("PowerManager: Entering DEEP SLEEP due to inactivity");
-    
+
     // Save clean shutdown flag
     Preferences prefs;
     prefs.begin(PREFS_SYSTEM_NAMESPACE, false);
     prefs.putBool("clean_shutdown", true);
     prefs.end();
-    
+
     // Power down display (backlight only - see display_driver.cpp for details)
     display_driver->powerDown();
     delay(100);
-    
+
     // Shutdown network and radios for power savings
-    FluidNCClient::disconnect();
     WiFi.disconnect(true);
     WiFi.mode(WIFI_OFF);
     btStop();
-    
+
     // Disable all wakeup sources except reset button
-    esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
-    
+    esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL); // do NOT want this
+    esp_sleep_enable_touchpad_wakeup();
+
     // Use default RTC power domain settings for maximum compatibility
     // (No esp_sleep_pd_config calls needed - defaults work fine)
-    
+
     // Enter deep sleep (only reset button can wake)
     Serial.println("Entering deep sleep with maximum power savings...");
     Serial.flush();  // Ensure message is sent
     delay(100);
-    
+
     esp_deep_sleep_start();
     // Never returns
 }

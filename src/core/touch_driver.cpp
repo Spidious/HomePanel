@@ -1,6 +1,6 @@
 #include "core/touch_driver.h"
-#include "core/display_driver.h"
 #include "core/power_manager.h"
+#include "core/display_driver.h"
 
 // Static touch point data
 static struct {
