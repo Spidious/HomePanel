@@ -1,11 +1,9 @@
 #include <Arduino.h>
 #include <lvgl.h>
 #include <WiFi.h>
-#include <Preferences.h>
-#include "core/display_driver.h"     // Display driver module
+#include "core/core_main.h"
 #include "core/power_manager.h"      // Power Manager module
-#include "core/touch_driver.h"       // Touch driver module
-#include "ui/ui.h"
+#include "ui.h"
 
 void setup()
 {
@@ -16,28 +14,8 @@ void setup()
     Serial.printf("PSRAM size: %d bytes\n", ESP.getPsramSize());
     Serial.printf("Free PSRAM: %d bytes\n", ESP.getFreePsram());
 
-    // Initialize Display Driver
-    Serial.println("Initializing display driver...");
-    static DisplayDriver displayDriver;
-    if (!displayDriver.init()) {
-        Serial.println("ERROR: Failed to initialize display!");
-        while (1) delay(1000);
-    }
-    Serial.println("Display driver initialized successfully");
-
-    // Initialize Touch Driver
-    Serial.println("Initializing touch driver...");
-    static TouchDriver touchDriver;
-    if (!touchDriver.init(displayDriver.getLCD())) {
-        Serial.println("ERROR: Failed to initialize touch!");
-        while (1) delay(1000);
-    }
-    Serial.println("Touch driver initialized successfully");
-
-    // Initialize Power Manager
-    Serial.println("Initializing power manager...");
-    PowerManager::init(&displayDriver);
-    Serial.println("Power manager initialized successfully");
+    // Setup Crowpanel Hardware
+    core_init();
 
     ui_init();
 }

@@ -11,7 +11,7 @@ bool PowerManager::enabled = true;
 uint32_t PowerManager::dim_timeout_sec = 30;         // Default: dim after 30 seconds
 uint32_t PowerManager::sleep_timeout_sec = 300;      // Default: screen off after 5 minutes
 uint32_t PowerManager::deep_sleep_timeout_sec = 0; //900; // Default: deep sleep after 15 minutes
-uint8_t PowerManager::normal_brightness = 35;       // Default: 100% brightness when active
+uint8_t PowerManager::normal_brightness = 50;       // Default: 100% brightness when active
 uint8_t PowerManager::dim_brightness = 10;           // Default: 25% brightness when dimmed
 uint32_t PowerManager::last_activity_ms = 0;
 PowerManager::PowerState PowerManager::current_state = PowerManager::FULL_BRIGHTNESS;
@@ -109,7 +109,7 @@ void PowerManager::loadSettings() {
     }
     if (deep_sleep_timeout_sec > 0 && deep_sleep_timeout_sec < 300) deep_sleep_timeout_sec = 300;
     if (deep_sleep_timeout_sec > 7200) deep_sleep_timeout_sec = 7200;  // Max 2 hours
-    if (normal_brightness > 35) normal_brightness = 35;  // Validate percentage range
+    if (normal_brightness > 50) normal_brightness = 50;  // Validate percentage range
     if (dim_brightness > 10) dim_brightness = 10;         // Validate percentage range
 }
 
