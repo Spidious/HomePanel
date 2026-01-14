@@ -3,7 +3,7 @@
 // LVGL version: 9.2.2
 // Project name: HomePanel
 
-#include "ui/ui_helpers.h"
+#include "ui_helpers.h"
 
 void _ui_bar_set_property(lv_obj_t * target, int id, int val)
 {

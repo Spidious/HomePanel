@@ -3,8 +3,8 @@
 // LVGL version: 9.2.2
 // Project name: HomePanel
 
-#include "ui/ui.h"
-#include "ui/ui_helpers.h"
+#include "ui.h"
+#include "ui_helpers.h"
 
 ///////////////////// VARIABLES ////////////////////
 

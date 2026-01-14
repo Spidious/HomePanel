@@ -3,7 +3,7 @@
 // LVGL version: 9.2.2
 // Project name: HomePanel
 
-#include "ui/ui.h"
+#include "ui.h"
 
 lv_obj_t * ui_Screen1 = NULL;
 lv_obj_t * ui_Keyboard1 = NULL;
