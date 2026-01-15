@@ -10,18 +10,21 @@
 extern "C" {
 #endif
 
-#include "../lvgl/lvgl.h"
+#include "lvgl.h"
 
 #include "ui_helpers.h"
 #include "ui_events.h"
 
 ///////////////////// SCREENS ////////////////////
-#include "screens/ui_Screen1.h"
+#include "ui_Screen1.h"
 
 ///////////////////// VARIABLES ////////////////////
 
 // EVENTS
 extern lv_obj_t * ui____initial_actions0;
+
+// IMAGES AND IMAGE SETS
+LV_IMG_DECLARE(ui_img_lvgl_test_image_png);    // assets/lvgl_test_image.png
 
 // UI INIT
 void ui_init(void);
