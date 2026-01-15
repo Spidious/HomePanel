@@ -36,7 +36,7 @@ void loop()
     // Update power manager with OFFLINE state (treat as IDLE for power management)
     PowerManager::update(0);
 
-    // Let the UI do it's thing
+    // Let the UI do its thing
     lv_timer_handler();
 
     delay(5);
