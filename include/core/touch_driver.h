@@ -1,3 +1,5 @@
+// This file has been copied and modified from https://github.com/jeyeager65/FluidTouch
+
 #ifndef TOUCH_DRIVER_H
 #define TOUCH_DRIVER_H
 

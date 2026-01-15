@@ -1,5 +1,7 @@
 #include "core/core_main.h"
 
+// This initializes the hardware components
+// Display, Touch, Powermanager, (soon to add SD card if initialization is needed)
 int core_init()
 {
     // Initialize Display Driver

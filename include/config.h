@@ -35,15 +35,8 @@
 #define GT911_CONFIG_REG  0x8047
 #define GT911_PRODUCT_ID  0x8140
 
-// UI Layout constants
-#define STATUS_BAR_HEIGHT 60
-#define TAB_BUTTON_HEIGHT 60
-
 // Display buffer configuration
 #define BUFFER_LINES 480  // Full screen buffer for smooth rendering (with 8MB PSRAM available)
-
-// Timing constants
-#define SPLASH_DURATION_MS 2500
 
 // Preferences namespaces
 #define PREFS_NAMESPACE "homepanel"        // Machine configurations
@@ -51,6 +44,7 @@
 
 // SD Card Configuration
 #ifdef HARDWARE_ADVANCE
+
 // Advance: SPI mode SD card
 #define SD_MOSI  6
 #define SD_MISO  4
@@ -63,8 +57,5 @@
 #define SD_CLK   12
 #define SD_CS    10
 #endif
-
-// Upload Configuration
-#define HOMEPANEL_UPLOAD_PATH "/homepanel/uploads/"
 
 #endif // CONFIG_H

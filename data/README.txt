@@ -1,4 +1,4 @@
-FluidTouch SPIFFS Data Folder
+SPIFFS Data Folder
 
 Place your data files here:
 - Images (.png, .jpg, .bmp)

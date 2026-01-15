@@ -1,3 +1,5 @@
+// This file has been copied and modified from https://github.com/jeyeager65/FluidTouch
+
 #include "core/touch_driver.h"
 #include "core/power_manager.h"
 #include "core/display_driver.h"

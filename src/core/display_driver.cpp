@@ -1,3 +1,5 @@
+// This file has been copied and modified from https://github.com/jeyeager65/FluidTouch
+
 #include "core/display_driver.h"
 #include <esp_heap_caps.h>
 #include <Wire.h>

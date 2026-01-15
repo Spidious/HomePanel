@@ -1,3 +1,5 @@
+// This file has been copied and modified from https://github.com/jeyeager65/FluidTouch
+
 #ifndef POWER_MANAGER_H
 #define POWER_MANAGER_H
 

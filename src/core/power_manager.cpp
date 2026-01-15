@@ -1,3 +1,5 @@
+// This file has been copied and modified from https://github.com/jeyeager65/FluidTouch
+
 #include "core/power_manager.h"
 #include "config.h"
 #include <Preferences.h>
