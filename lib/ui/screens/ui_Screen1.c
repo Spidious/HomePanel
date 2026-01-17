@@ -68,7 +68,7 @@ void ui_Screen1_screen_init(void)
     lv_obj_remove_flag(ui_Screen1, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
 
     ui_Background = lv_image_create(ui_Screen1);
-    lv_image_set_src(ui_Background, &ui_img_lvgl_test_image_png);
+    lv_image_set_src(ui_Background, &ui_default_img);
     lv_obj_set_width(ui_Background, LV_SIZE_CONTENT);   /// 800
     lv_obj_set_height(ui_Background, LV_SIZE_CONTENT);    /// 480
     lv_obj_set_align(ui_Background, LV_ALIGN_CENTER);

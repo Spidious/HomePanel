@@ -24,7 +24,7 @@ extern "C" {
 extern lv_obj_t * ui____initial_actions0;
 
 // IMAGES AND IMAGE SETS
-LV_IMG_DECLARE(ui_img_lvgl_test_image_png);    // assets/lvgl_test_image.png
+LV_IMG_DECLARE(ui_default_img);    // assets/lvgl_test_image.png
 
 // UI INIT
 void ui_init(void);
