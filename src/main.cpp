@@ -4,6 +4,22 @@
 #include "core/core_main.h"
 #include "core/power_manager.h"      // Power Manager module
 #include "ui.h"
+#include <LittleFS.h>
+
+void listFS() {
+    if(!LittleFS.begin()) {
+        Serial.println("Failed to mount FS");
+        return;
+    }
+
+    File root = LittleFS.open("/assets");
+    File file = root.openNextFile();
+    while(file) {
+        Serial.print("File: ");
+        Serial.println(file.name());
+        file = root.openNextFile();
+    }
+}
 
 void setup()
 {
@@ -15,11 +31,18 @@ void setup()
     Serial.printf("PSRAM size: %d bytes\n", ESP.getPsramSize());
     Serial.printf("Free PSRAM: %d bytes\n", ESP.getFreePsram());
 
+    if(!LittleFS.begin()) {
+        Serial.println("Failed to mount FS");
+        return;
+    }
+
     // Setup Crowpanel Hardware
     core_init();
 
     // Begin the UI
     ui_init();
+
+    listFS();
 }
 
 // Main application loop
