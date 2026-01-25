@@ -13,6 +13,7 @@
 
 # Build artifacts
 *.bin
+!ui_default_img.bin
 *.elf
 *.hex
 *.map
@@ -107,7 +108,7 @@ logs/
 .env
 .env.local
 
-*/settings.json
+settings.json
 
 # Credentials (never commit these!)
 secrets.h
