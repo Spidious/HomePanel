@@ -1,25 +1,12 @@
 #include <Arduino.h>
 #include <lvgl.h>
-#include <WiFi.h>
 #include "core/core_main.h"
 #include "core/power_manager.h"      // Power Manager module
 #include "ui.h"
+#include <ArduinoJson.h>
 #include <LittleFS.h>
 
-void listFS() {
-    if(!LittleFS.begin()) {
-        Serial.println("Failed to mount FS");
-        return;
-    }
-
-    File root = LittleFS.open("/assets");
-    File file = root.openNextFile();
-    while(file) {
-        Serial.print("File: ");
-        Serial.println(file.name());
-        file = root.openNextFile();
-    }
-}
+#include "core/wifi_driver.h"
 
 void setup()
 {
@@ -36,13 +23,38 @@ void setup()
         return;
     }
 
+    // Open the file
+    File file = LittleFS.open("/settings.json", "r");
+    if (!file)
+    {
+        Serial.println("Failed to open file");
+        return;
+    }
+
+    // create json object
+    StaticJsonDocument<512> doc;
+
+    // Load data from file into object
+    DeserializationError err = deserializeJson(doc, file);
+    file.close();
+
+    // Handle json error
+    if (err)
+    {
+        Serial.print("Json parse failed: ");
+        Serial.println(err.c_str());
+        return;
+    }
+
     // Setup Crowpanel Hardware
     core_init();
 
     // Begin the UI
     ui_init();
 
-    listFS();
+    // Connect to wifi
+    WiFiDriver::init(doc);
+
 }
 
 // Main application loop
