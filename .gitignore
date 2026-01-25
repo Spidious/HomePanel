@@ -107,6 +107,8 @@ logs/
 .env
 .env.local
 
+*/settings.json
+
 # Credentials (never commit these!)
 secrets.h
 credentials.h
